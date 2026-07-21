@@ -30,6 +30,8 @@ export const KommoCard: React.FC<KommoCardProps> = ({ onStatusChange }) => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [subdomainInput, setSubdomainInput] = useState('');
+  const [clientIdInput, setClientIdInput] = useState('');
+  const [clientSecretInput, setClientSecretInput] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -67,10 +69,22 @@ export const KommoCard: React.FC<KommoCardProps> = ({ onStatusChange }) => {
 
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/integrations/kommo/connect?subdomain=${encodeURIComponent(cleanSubdomain)}`);
+      let url = `/api/integrations/kommo/connect?subdomain=${encodeURIComponent(cleanSubdomain)}`;
+      if (clientIdInput.trim()) {
+        url += `&client_id=${encodeURIComponent(clientIdInput.trim())}`;
+      }
+      if (clientSecretInput.trim()) {
+        url += `&client_secret=${encodeURIComponent(clientSecretInput.trim())}`;
+      }
+
+      const res = await fetch(url);
       const json = await res.json();
       if (res.ok && json.auth_url) {
-        window.location.href = `/api/integrations/kommo/callback?code=demo_auth_code&subdomain=${cleanSubdomain}`;
+        if (cleanSubdomain === 'demo') {
+          window.location.href = `/api/integrations/kommo/callback?code=demo_auth_code&subdomain=${cleanSubdomain}`;
+        } else {
+          window.location.href = json.auth_url;
+        }
       } else {
         setFeedbackMsg({ type: 'error', text: 'Erro ao gerar URL de autorização.' });
       }
@@ -355,7 +369,7 @@ export const KommoCard: React.FC<KommoCardProps> = ({ onStatusChange }) => {
                 </div>
                 <div>
                   <h3 className="text-lg font-extrabold text-slate-100">Conectar Conta Kommo CRM</h3>
-                  <p className="text-xs text-slate-400">Informe o subdomínio da sua conta</p>
+                  <p className="text-xs text-slate-400">Informe os dados da sua integração no Kommo</p>
                 </div>
               </div>
               <button
@@ -366,25 +380,56 @@ export const KommoCard: React.FC<KommoCardProps> = ({ onStatusChange }) => {
               </button>
             </div>
 
-            <form onSubmit={handleConnect} className="space-y-5">
+            <form onSubmit={handleConnect} className="space-y-4">
               <div>
-                <label className="block text-xs font-extrabold text-slate-200 uppercase tracking-wider mb-2">
-                  Subdomínio Kommo CRM
+                <label className="block text-xs font-extrabold text-slate-200 uppercase tracking-wider mb-1.5">
+                  Subdomínio Kommo CRM *
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    autoFocus
-                    placeholder="ex: empresa ou empresa.kommo.com"
-                    value={subdomainInput}
-                    onChange={(e) => setSubdomainInput(e.target.value)}
-                    className="w-full bg-[#05080f] border-2 border-slate-700 focus:border-cyan-400 text-slate-100 font-semibold text-base rounded-xl px-4 py-3.5 placeholder:text-slate-500 focus:outline-none transition-colors shadow-inner"
-                  />
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="ex: empresa ou empresa.kommo.com"
+                  value={subdomainInput}
+                  onChange={(e) => setSubdomainInput(e.target.value)}
+                  className="w-full bg-[#05080f] border-2 border-slate-700 focus:border-cyan-400 text-slate-100 font-semibold text-sm rounded-xl px-4 py-3 placeholder:text-slate-500 focus:outline-none transition-colors shadow-inner"
+                />
+                <div className="mt-1.5 text-[11px] text-slate-400">
+                  URL da conta: <span className="font-mono font-bold text-cyan-400">{subdomainInput ? normalizeSubdomain(subdomainInput) : 'suaempresa'}.kommo.com</span>
                 </div>
-                <div className="mt-2.5 p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300">
-                  URL Final: <span className="font-mono font-bold text-cyan-400">{subdomainInput ? normalizeSubdomain(subdomainInput) : 'suaempresa'}.kommo.com</span>
-                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-slate-200 uppercase tracking-wider mb-1.5">
+                  ID da Integração (Client ID)
+                </label>
+                <input
+                  type="text"
+                  placeholder="ID gerado no Kommo (Configurações > Integrações)"
+                  value={clientIdInput}
+                  onChange={(e) => setClientIdInput(e.target.value)}
+                  className="w-full bg-[#05080f] border-2 border-slate-700 focus:border-cyan-400 text-slate-100 font-semibold text-sm rounded-xl px-4 py-3 placeholder:text-slate-500 focus:outline-none transition-colors shadow-inner"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-slate-200 uppercase tracking-wider mb-1.5">
+                  Chave Secreta (Client Secret)
+                </label>
+                <input
+                  type="password"
+                  placeholder="Chave secreta gerada no Kommo"
+                  value={clientSecretInput}
+                  onChange={(e) => setClientSecretInput(e.target.value)}
+                  className="w-full bg-[#05080f] border-2 border-slate-700 focus:border-cyan-400 text-slate-100 font-semibold text-sm rounded-xl px-4 py-3 placeholder:text-slate-500 focus:outline-none transition-colors shadow-inner"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] text-slate-400 leading-relaxed">
+                💡 <strong className="text-slate-200">Como obter no Kommo:</strong> Acesse a conta Kommo &gt; <em>Configurações</em> &gt; <em>Integrações</em> &gt; <em>Criar Integração</em>. Defina a Redirect URI como:<br />
+                <code className="font-mono text-cyan-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 mt-1 inline-block">
+                  {window.location.origin.replace(':3000', ':8000')}/api/integrations/kommo/callback
+                </code>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-2">

@@ -13,10 +13,12 @@ class Settings(BaseSettings):
     SUPABASE_URL: Optional[str] = None
     SUPABASE_ANON_KEY: Optional[str] = None
 
+    FRONTEND_URL: str = "http://localhost:3000"
+
     KOMMO_SUBDOMAIN: Optional[str] = "demo"
     KOMMO_CLIENT_ID: Optional[str] = "demo_client_id"
     KOMMO_CLIENT_SECRET: Optional[str] = "demo_client_secret"
-    KOMMO_REDIRECT_URI: Optional[str] = "http://localhost:8000/api/auth/kommo/callback"
+    KOMMO_REDIRECT_URI: Optional[str] = "http://localhost:8000/api/integrations/kommo/callback"
     KOMMO_LONG_LIVED_TOKEN: Optional[str] = "demo_token"
 
     CACHE_TTL_SECONDS: int = 60

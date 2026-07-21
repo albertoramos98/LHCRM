@@ -32,13 +32,47 @@ class KommoOAuthService:
         clean = re.sub(r"[^a-z0-9_-]", "", clean)
         return clean or "demo"
 
-    def generate_auth_url(self, raw_subdomain: str, company_id: Optional[str] = None) -> str:
+    async def generate_auth_url(
+        self,
+        raw_subdomain: str,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
+        company_id: Optional[str] = None
+    ) -> str:
         subdomain = self.normalize_subdomain(raw_subdomain)
-        client_id = settings.KOMMO_CLIENT_ID or "demo_client_id"
+        cid = client_id.strip() if client_id and client_id.strip() else (settings.KOMMO_CLIENT_ID or "demo_client_id")
+        csecret = client_secret.strip() if client_secret and client_secret.strip() else (settings.KOMMO_CLIENT_SECRET or "demo_client_secret")
         redirect_uri = settings.KOMMO_REDIRECT_URI or "http://localhost:8000/api/integrations/kommo/callback"
         state = company_id or "default_company"
+
+        # Persist or update pending integration with provided credentials
+        res = await self.session.execute(
+            select(CRMIntegration).where(CRMIntegration.subdomain == subdomain)
+        )
+        integration = res.scalar_one_or_none()
+
+        if not integration:
+            integration = CRMIntegration(
+                company_id=state,
+                provider="kommo",
+                subdomain=subdomain,
+                client_id=cid,
+                client_secret=csecret,
+                redirect_uri=redirect_uri,
+                status="pending"
+            )
+            self.session.add(integration)
+        else:
+            integration.client_id = cid
+            integration.client_secret = csecret
+            integration.redirect_uri = redirect_uri
+            if integration.status != "connected":
+                integration.status = "pending"
+            integration.updated_at = datetime.utcnow()
+
+        await self.session.commit()
         
-        return f"https://{subdomain}.kommo.com/oauth?client_id={client_id}&state={state}&mode=popup"
+        return f"https://{subdomain}.kommo.com/oauth?client_id={cid}&state={state}&mode=popup"
 
     async def log_event(self, integration_id: str, event_type: str, message: str, status: str = "info"):
         log_entry = IntegrationLog(
@@ -52,15 +86,16 @@ class KommoOAuthService:
 
     async def exchange_code(self, code: str, raw_subdomain: str, company_id: Optional[str] = None) -> CRMIntegration:
         subdomain = self.normalize_subdomain(raw_subdomain)
-        client_id = settings.KOMMO_CLIENT_ID or "demo_client_id"
-        client_secret = settings.KOMMO_CLIENT_SECRET or "demo_client_secret"
-        redirect_uri = settings.KOMMO_REDIRECT_URI or "http://localhost:8000/api/integrations/kommo/callback"
 
         # Check for existing integration for company or subdomain
         res = await self.session.execute(
             select(CRMIntegration).where(CRMIntegration.subdomain == subdomain)
         )
         integration = res.scalar_one_or_none()
+
+        client_id = (integration.client_id if integration and integration.client_id else settings.KOMMO_CLIENT_ID) or "demo_client_id"
+        client_secret = (integration.client_secret if integration and integration.client_secret else settings.KOMMO_CLIENT_SECRET) or "demo_client_secret"
+        redirect_uri = (integration.redirect_uri if integration and integration.redirect_uri else settings.KOMMO_REDIRECT_URI) or "http://localhost:8000/api/integrations/kommo/callback"
 
         now = datetime.utcnow()
 
@@ -108,6 +143,8 @@ class KommoOAuthService:
             )
             self.session.add(integration)
         else:
+            integration.client_id = client_id
+            integration.client_secret = client_secret
             integration.access_token = access_token
             integration.refresh_token = refresh_token
             integration.expires_at = expires_at

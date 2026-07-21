@@ -2,6 +2,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.config import settings
 from app.core.database import get_db
 from app.integrations.kommo.oauth import KommoOAuthService
 from app.integrations.kommo.sync import KommoIntegrationSyncService
@@ -14,6 +15,8 @@ router = APIRouter(prefix="/api/integrations/kommo", tags=["Kommo CRM Integratio
 @router.get("/connect", response_model=ConnectUrlResponse)
 async def get_connect_url(
     subdomain: str = Query(..., description="Subdomínio da conta Kommo (ex: empresa.kommo.com)"),
+    client_id: Optional[str] = Query(None, description="ID da Integração Kommo"),
+    client_secret: Optional[str] = Query(None, description="Chave secreta da Integração Kommo"),
     company_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
@@ -22,7 +25,12 @@ async def get_connect_url(
     """
     oauth_service = KommoOAuthService(db)
     clean_subdomain = oauth_service.normalize_subdomain(subdomain)
-    auth_url = oauth_service.generate_auth_url(clean_subdomain, company_id)
+    auth_url = await oauth_service.generate_auth_url(
+        raw_subdomain=clean_subdomain,
+        client_id=client_id,
+        client_secret=client_secret,
+        company_id=company_id
+    )
     return ConnectUrlResponse(auth_url=auth_url, subdomain=clean_subdomain)
 
 @router.get("/callback")
@@ -63,7 +71,8 @@ async def oauth_callback(
         await sync_service.sync_integration(integration.id, trigger_type="automatic")
 
         # Redirect to frontend dashboard with success query param
-        return RedirectResponse(url="http://localhost:3000/?integration=success", status_code=302)
+        redirect_base = settings.FRONTEND_URL.rstrip('/')
+        return RedirectResponse(url=f"{redirect_base}/?integration=success", status_code=302)
 
     except Exception as e:
         raise HTTPException(
