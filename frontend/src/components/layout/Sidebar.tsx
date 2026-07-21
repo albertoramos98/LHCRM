@@ -144,11 +144,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-3 border-t border-slate-800/80">
         <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-md">
-            RC
+            AR
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <p className="text-xs font-bold text-slate-200 truncate">Roberto Costa</p>
+              <p className="text-xs font-bold text-slate-200 truncate">Alberto Ramos</p>
               <p className="text-[10px] text-slate-400 truncate">Gerente Executivo</p>
             </div>
           )}
