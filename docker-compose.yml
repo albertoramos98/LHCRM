@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:010898dejaneiro!@db.evkligtiojtsxtqydtog.supabase.co:5432/postgres
+      - KOMMO_CLIENT_ID=${KOMMO_CLIENT_ID}
+      - KOMMO_CLIENT_SECRET=${KOMMO_CLIENT_SECRET}
+      - KOMMO_REDIRECT_URI=${KOMMO_REDIRECT_URI}
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always
