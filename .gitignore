@@ -25,3 +25,10 @@ Thumbs.db
 .vscode/
 .idea/
 *.log
+
+# Databases & local sqlite
+*.db
+*.sqlite
+
+# Local generated static dashboard assets
+backend/static/

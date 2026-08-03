@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Query, Header
+from fastapi import APIRouter, Depends, Query, Header, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
@@ -265,3 +265,27 @@ async def get_all_metrics(
         unidade=unidade, procedimento=procedimento, origem=origem, suborigem=suborigem,
         user_role=role, current_user_id=user_id
     )
+
+@router.get("/export-html")
+async def export_dashboard_html(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generates a standalone executive dashboard HTML file on-the-fly with the
+    latest data embedded, and returns it as a file download.
+    """
+    import tempfile
+    import os
+    from app.services.html_generator import generate_dashboard_html
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_file = os.path.join(tmpdir, "dashboard_export.html")
+        await generate_dashboard_html(db, tmp_file)
+        with open(tmp_file, "r", encoding="utf-8") as f:
+            content = f.read()
+
+    headers = {
+        "Content-Disposition": 'attachment; filename="dashboard_executivo_lhcrm.html"'
+    }
+    return Response(content=content, media_type="text/html", headers=headers)
+

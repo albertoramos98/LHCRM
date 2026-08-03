@@ -5,8 +5,7 @@ from app.models.domain import Base
 from app.services.sync_service import KommoSyncService
 from app.core.database import async_sessionmaker, AsyncSession
 
-# For Supabase Pooler with asyncpg, statement_cache_size=0 is required for prepared statement compatibility
-DB_URL = "postgresql+asyncpg://postgres.evkligtiojtsxtqydtog:010898dejaneiro!@aws-0-ca-central-1.pooler.supabase.com:5432/postgres"
+DB_URL = "postgresql+asyncpg://postgres:010898dejaneiro!@db.evkligtiojtsxtqydtog.supabase.co:5432/postgres"
 
 async def run():
     print("Testing Supabase Session Pooler (port 5432) with statement_cache_size=0...")

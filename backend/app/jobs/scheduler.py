@@ -14,6 +14,13 @@ async def scheduled_kommo_sync_job():
         sync_service = KommoSyncService(session)
         result = await sync_service.execute_sync(trigger_type="automatic")
         logger.info(f"Auto-sync job finished with result: {result['status']}")
+        if result.get("status") == "success":
+            try:
+                from app.services.html_generator import generate_dashboard_html
+                await generate_dashboard_html(session)
+            except Exception as e:
+                logger.error(f"Failed to generate HTML dashboard after auto-sync: {e}")
+
 
 def start_scheduler():
     interval_minutes = settings.AUTO_SYNC_INTERVAL_MINUTES
