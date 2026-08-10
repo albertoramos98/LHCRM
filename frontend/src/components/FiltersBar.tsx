@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Filter, Calendar, User, GitBranch, Shield, Building, Stethoscope, Share2, CornerDownRight, X } from 'lucide-react';
+import { apiFetch } from '../utils/api';
 
 export interface FilterState {
   period: string;
@@ -39,7 +40,7 @@ export const FiltersBar: React.FC<FiltersBarProps> = ({ filters, onChange }) => 
   });
 
   useEffect(() => {
-    fetch('/api/dashboard/options')
+    apiFetch('/api/dashboard/options')
       .then((res) => res.json())
       .then((data) => setOptions(data))
       .catch((err) => console.error('Error fetching filter options:', err));

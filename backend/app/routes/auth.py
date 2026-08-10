@@ -14,11 +14,11 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
     user = res.scalar_one_or_none()
 
     # Seed initial admin user if none exists
-    if not user and req.email == "admin@empresa.com":
+    if not user and req.email == "assessoria.revon":
         user = User(
-            name="Administrador Executive",
-            email="admin@empresa.com",
-            hashed_password=get_password_hash("admin123"),
+            name="Assessoria Revon",
+            email="assessoria.revon",
+            hashed_password=get_password_hash("Luizhenrique95#"),
             role="Admin",
             is_active=True
         )

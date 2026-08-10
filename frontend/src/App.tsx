@@ -14,6 +14,8 @@ import { RankingModule } from './modules/RankingModule';
 import { FollowUpModule } from './modules/FollowUpModule';
 import { OriginsModule } from './modules/OriginsModule';
 import { IntegrationsPage } from './pages/Integrations';
+import { apiFetch, triggerLogout } from './utils/api';
+import { LoginPage } from './pages/Login';
 
 export function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -21,6 +23,34 @@ export function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [kommoConnected, setKommoConnected] = useState(true);
+
+  const [user, setUser] = useState<{ id: number; name: string; email: string; role: string } | null>(() => {
+    const storedUser = localStorage.getItem('lhcrm_user');
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
+
+  useEffect(() => {
+    const handleLogoutEvent = () => {
+      setUser(null);
+    };
+    window.addEventListener('auth-logout', handleLogoutEvent);
+    return () => window.removeEventListener('auth-logout', handleLogoutEvent);
+  }, []);
+
+  const handleLoginSuccess = (tokenData: {
+    access_token: string;
+    refresh_token: string;
+    user: { id: number; name: string; email: string; role: string };
+  }) => {
+    localStorage.setItem('lhcrm_access_token', tokenData.access_token);
+    localStorage.setItem('lhcrm_refresh_token', tokenData.refresh_token);
+    localStorage.setItem('lhcrm_user', JSON.stringify(tokenData.user));
+    setUser(tokenData.user);
+  };
+
+  const handleLogout = () => {
+    triggerLogout();
+  };
 
   const [filters, setFilters] = useState<FilterState>({
     period: '30days',
@@ -52,7 +82,7 @@ export function App() {
 
   const checkIntegrationStatus = async () => {
     try {
-      const res = await fetch('/api/integrations/kommo/status');
+      const res = await apiFetch('/api/integrations/kommo/status');
       if (res.ok) {
         const json = await res.json();
         setKommoConnected(json.status === 'connected');
@@ -78,7 +108,7 @@ export function App() {
       if (filters.origem) queryParams.append('origem', filters.origem);
       if (filters.suborigem) queryParams.append('suborigem', filters.suborigem);
 
-      const res = await fetch(`/api/dashboard/${activeTab}?${queryParams.toString()}`);
+      const res = await apiFetch(`/api/dashboard/${activeTab}?${queryParams.toString()}`);
       if (res.ok) {
         const json = await res.json();
         setData(json);
@@ -91,12 +121,16 @@ export function App() {
   };
 
   useEffect(() => {
-    checkIntegrationStatus();
-  }, []);
+    if (user) {
+      checkIntegrationStatus();
+    }
+  }, [user]);
 
   useEffect(() => {
-    fetchData();
-  }, [activeTab, filters]);
+    if (user) {
+      fetchData();
+    }
+  }, [activeTab, filters, user]);
 
   // Sidebar toggle shortcut Ctrl+B
   useEffect(() => {
@@ -123,6 +157,10 @@ export function App() {
     integrations: 'Central de Integrações SaaS',
   };
 
+  if (!user) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#080c14] text-slate-100 flex">
       {/* Sidebar Navigation */}
@@ -132,6 +170,8 @@ export function App() {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         kommoConnected={kommoConnected}
+        user={user}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}

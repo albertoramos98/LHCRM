@@ -15,6 +15,7 @@ import {
   Building2,
   UserCheck,
   Zap,
+  LogOut,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,6 +24,8 @@ interface SidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   kommoConnected: boolean;
+  user: { name: string; email: string; role: string } | null;
+  onLogout: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -31,6 +34,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   collapsed,
   onToggleCollapse,
   kommoConnected,
+  user,
+  onLogout,
 }) => {
   const menuItems = [
     { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
@@ -49,6 +54,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: kommoConnected ? '● Kommo' : '○ Kommo',
     },
   ];
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+  };
 
   return (
     <aside
@@ -142,16 +156,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* User Profile Footer */}
       <div className="p-3 border-t border-slate-800/80">
-        <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-md">
-            AR
-          </div>
-          {!collapsed && (
-            <div className="overflow-hidden">
-              <p className="text-xs font-bold text-slate-200 truncate">Alberto Ramos</p>
-              <p className="text-[10px] text-slate-400 truncate">Gerente Executivo</p>
+        <div className={`flex items-center justify-between gap-2 ${collapsed ? 'flex-col items-center' : ''}`}>
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div 
+              className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-md"
+              title={user?.name || 'Usuário'}
+            >
+              {user ? getInitials(user.name) : 'AR'}
             </div>
-          )}
+            {!collapsed && user && (
+              <div className="overflow-hidden">
+                <p className="text-xs font-bold text-slate-200 truncate" title={user.name}>{user.name}</p>
+                <p className="text-[10px] text-slate-400 truncate">{user.role}</p>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={onLogout}
+            className={`p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-red-400 hover:border-red-500/20 transition-all ${collapsed ? 'mt-2' : ''}`}
+            title="Sair da Conta"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </aside>

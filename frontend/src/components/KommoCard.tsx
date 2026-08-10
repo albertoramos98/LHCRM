@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../utils/api';
 import {
   Link2,
   RefreshCw,
@@ -39,7 +40,7 @@ export const KommoCard: React.FC<KommoCardProps> = ({ onStatusChange }) => {
   const fetchStatus = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/integrations/kommo/status');
+      const res = await apiFetch('/api/integrations/kommo/status');
       if (res.ok) {
         const json = await res.json();
         setData(json);
@@ -77,7 +78,7 @@ export const KommoCard: React.FC<KommoCardProps> = ({ onStatusChange }) => {
         url += `&client_secret=${encodeURIComponent(clientSecretInput.trim())}`;
       }
 
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       const json = await res.json();
       if (res.ok && json.auth_url) {
         if (cleanSubdomain === 'demo') {
@@ -100,7 +101,7 @@ export const KommoCard: React.FC<KommoCardProps> = ({ onStatusChange }) => {
     setActionLoading(true);
     setFeedbackMsg(null);
     try {
-      const res = await fetch('/api/integrations/kommo/sync', { method: 'POST' });
+      const res = await apiFetch('/api/integrations/kommo/sync', { method: 'POST' });
       const json = await res.json();
       if (res.ok && json.status === 'success') {
         setFeedbackMsg({ type: 'success', text: `Sincronização concluída (${json.items_synced} itens).` });
@@ -120,7 +121,7 @@ export const KommoCard: React.FC<KommoCardProps> = ({ onStatusChange }) => {
     setActionLoading(true);
     setFeedbackMsg(null);
     try {
-      const res = await fetch('/api/integrations/kommo/refresh-token', { method: 'POST' });
+      const res = await apiFetch('/api/integrations/kommo/refresh-token', { method: 'POST' });
       const json = await res.json();
       if (res.ok && json.status === 'success') {
         setFeedbackMsg({ type: 'success', text: 'Token de acesso renovado com sucesso!' });
@@ -140,7 +141,7 @@ export const KommoCard: React.FC<KommoCardProps> = ({ onStatusChange }) => {
     setActionLoading(true);
     setFeedbackMsg(null);
     try {
-      const res = await fetch('/api/integrations/kommo/disconnect', { method: 'POST' });
+      const res = await apiFetch('/api/integrations/kommo/disconnect', { method: 'POST' });
       const json = await res.json();
       if (res.ok) {
         setFeedbackMsg({ type: 'success', text: 'Integração desconectada.' });

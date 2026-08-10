@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { apiFetch } from '../utils/api';
 
 interface SyncButtonProps {
   onSyncComplete?: () => void;
@@ -15,7 +16,7 @@ export const SyncButton: React.FC<SyncButtonProps> = ({ onSyncComplete }) => {
     setSyncing(true);
     setError(null);
     try {
-      const res = await fetch('/api/sync/now', { method: 'POST' });
+      const res = await apiFetch('/api/sync/now', { method: 'POST' });
       const data = await res.json();
       if (res.ok && data.status === 'success') {
         setLastSynced(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
