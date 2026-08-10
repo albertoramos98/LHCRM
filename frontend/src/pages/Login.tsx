@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, ShieldAlert, Sparkles, ArrowRight } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ShieldAlert, ArrowRight } from 'lucide-react';
 
 interface LoginProps {
   onLoginSuccess: (tokenData: {
@@ -37,7 +37,19 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Falha ao autenticar. Verifique suas credenciais.');
+        let errorMessage = 'Falha ao autenticar. Verifique suas credenciais.';
+        if (errorData && errorData.detail) {
+          if (typeof errorData.detail === 'string') {
+            errorMessage = errorData.detail;
+          } else if (Array.isArray(errorData.detail)) {
+            errorMessage = errorData.detail
+              .map((err: any) => err.msg || JSON.stringify(err))
+              .join(', ');
+          } else if (typeof errorData.detail === 'object') {
+            errorMessage = errorData.detail.message || JSON.stringify(errorData.detail);
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -56,12 +68,6 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleFillDemo = () => {
-    setEmail('assessoria.revon');
-    setPassword('Luizhenrique95#');
-    setError(null);
   };
 
   return (
@@ -169,19 +175,7 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </button>
           </form>
 
-          {/* Quick Demo Credentials Box */}
-          <div className="mt-8 pt-6 border-t border-slate-800/60 text-center">
-            <button
-              onClick={handleFillDemo}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-cyan-400 hover:border-slate-700/80 transition-all text-[11px] font-bold"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-              Usar Conta de Demonstração
-            </button>
-            <p className="text-[10px] text-slate-500 mt-2">
-              assessoria.revon / Luizhenrique95#
-            </p>
-          </div>
+
         </div>
 
         {/* Footer legal/copy */}
