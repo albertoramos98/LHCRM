@@ -67,6 +67,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Ensure static directory exists before mounting
+os.makedirs("static", exist_ok=True)
+
 # Mount static files to serve the generated html dashboard
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
