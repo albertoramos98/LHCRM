@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Download, FileText, Table, Check, FileCode, Globe, ExternalLink } from 'lucide-react';
+import { Download, FileText, Table, FileCode, Globe, ExternalLink } from 'lucide-react';
+import { apiFetch } from '../utils/api';
 
 export const ExportActions: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -25,18 +26,30 @@ export const ExportActions: React.FC = () => {
     }, 600);
   };
 
-  const handleExportHtml = () => {
+  const handleExportHtml = async () => {
     setDownloading('html');
-    const link = document.createElement('a');
-    link.href = '/api/dashboard/export-html';
-    link.setAttribute('download', 'dashboard_executivo_lhcrm.html');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => {
+    try {
+      const response = await apiFetch('/api/dashboard/export-html');
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `dashboard_executivo_${new Date().toISOString().slice(0, 10)}.html`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        alert('Erro ao exportar dashboard HTML. Verifique sua conexão e permissões.');
+      }
+    } catch (err) {
+      console.error('Failed to export HTML:', err);
+      alert('Erro de comunicação ao exportar HTML.');
+    } finally {
       setDownloading(null);
       setIsOpen(false);
-    }, 600);
+    }
   };
 
   const handleOpenPublicLink = () => {

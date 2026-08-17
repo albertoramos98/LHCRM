@@ -1,38 +1,53 @@
-# LHCRM Pro — Executive Dashboard & Kommo CRM SaaS Integration
+# LHCRM Pro — Multi-Tenant Executive Analytics & CRM Integration
 
 ![LHCRM Banner](https://img.shields.io/badge/LHCRM-Executive_Dashboard-06b6d4?style=for-the-badge&logo=react)
 ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
-![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
-![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-3ECF8E?style=for-the-badge&logo=postgresql&logoColor=white)
+![MultiTenant](https://img.shields.io/badge/Architecture-Multi--Tenant-8b5cf6?style=for-the-badge)
 
-Plataforma SaaS B2B de alta performance inspirada no padrão visual da **Linear, Vercel e Stripe**. O **LHCRM** oferece um Dashboard Administrativo e Executivo completo com sincronização remota via **OAuth 2.0 com a API do Kommo CRM** e persistência de dados em **Supabase PostgreSQL**.
+Plataforma SaaS B2B corporativa de alta performance inspirada nos padrões visuais da **Linear, Vercel e Stripe**. O **LHCRM Pro** oferece um Dashboard Administrativo e Executivo completo com isolamento **Multi-Tenant nativo**, sincronização remota via **OAuth 2.0 com a API do Kommo CRM** e persistência de dados em **PostgreSQL** (compatível com Supabase Pooler).
 
 ---
 
-## 🚀 Arquitetura & Fluxo de Dados
-
-O sistema opera com arquitetura totalmente desacoplada. Nenhuma métrica ou gráfico consulta diretamente a API do Kommo durante a navegação — os dados são sincronizados no servidor e persistidos no banco local PostgreSQL (Supabase), garantindo respostas ultrarrápidas (< 50ms).
+## 🏛️ Arquitetura do Sistema
 
 ```text
-Kommo CRM API ──(OAuth 2.0)──> FastAPI Sync Service ──> Supabase PostgreSQL ──> React Executive UI
+React 18 + Vite (Frontend)
+   │
+   │  HTTPS / REST / Bearer JWT + X-Organization-ID
+   ▼
+FastAPI 0.115+ (Security Headers, Rate Limiting, RBAC & Multi-Tenant Dependency)
+   │
+   ├──> Domain Services (KommoSyncService, DashboardService, HTMLGenerator)
+   │       │
+   │       └──> Repositories (SyncRepository, DashboardRepository com Tenant Scoping)
+   │               │
+   │               └──> PostgreSQL / SQLite (Alembic Migrations)
+   │
+   └──> Kommo CRM Integration (OAuth 2.0 Per-Tenant, Auto-Refresh & Auto-Sync)
 ```
 
 ---
 
 ## ✨ Principais Funcionalidades
 
-### 🔐 Multi-Tenant OAuth 2.0 & Auto-Refresh
-- **Fluxo de Autorização OAuth 2.0**: Conexão simples via subdomínio da conta Kommo.
-- **Renovação Automática de Token**: O servidor gerencia o ciclo de vida dos tokens (`expires_at`), renovando o `access_token` via `refresh_token` sem qualquer ação manual.
-- **Armazenamento Seguro**: Segredos (`client_secret`, `access_token`) ficam restritos ao backend e mantidos em sigilo no Supabase.
+### 🏢 Multi-Tenancy Nativo & Isolamento Rigoroso
+- **Segregação Completa de Dados:** Nenhuma organização acessa dados de outra.
+- **Cache Isolado por Tenant:** Chaves em memória particionadas por ID de organização.
+- **Integração OAuth por Organização:** Cada tenant conecta seu próprio subdomínio e chaves de API.
+- **Controle de Acesso Baseado em Funções (RBAC):** Papéis `Owner`, `Admin`, `Gerente` e `Consultora`.
 
-### 🎨 Design System & UI Editorial High-End
-- **Inspirado em Linear & Vercel**: Tipografia **Geist & Inter**, spacing em grid de 8px e estilo glassmorphism.
-- **StatCards com Sparklines SVG**: Indicadores principais de Receita, Vendas, Ticket Médio e Conversão com gráficos de tendência em tempo real.
-- **Command Palette (`Ctrl+K`)**: Modal global de busca rápida e comandos por teclado estilo Raycast.
-- **Sidebar Recolhível (`Ctrl+B`)**: Barra de navegação minimalista com atalho de teclado e status da integração Kommo.
-- **Exportação Flexível**: Geração de relatórios em **CSV / Excel** e impressão em **PDF**.
+### 🔐 Segurança em Nível de Produção
+- **Autenticação JWT com Refresh Tokens e Validação de Inatividade.**
+- **Rate Limiting em Memória:** Proteção contra ataques de força bruta em `/api/auth/login` e `/api/sync/now`.
+- **Prevenção de IDOR e Enumeração de Usuários.**
+- **Security Headers:** `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`.
+- **CORS Estrito e Segredos 100% Sanitizados:** Variáveis de ambiente isoladas e fora do Git.
+
+### 📊 Dashboard Analítico & Métricas Executivas
+- **Módulos:** Visão Geral, Atendimento & Eficiência, Ticket Médio, Receita & Faturamento, Funil de Vendas, Motivos de Perda, Ranking de Consultoras, Follow-up & Tarefas e Origens de Tráfego.
+- **Exportação Multiformato:** CSV / Excel, PDF e Dashboard HTML Autônomo com dados embutidos.
 
 ---
 
@@ -40,11 +55,12 @@ Kommo CRM API ──(OAuth 2.0)──> FastAPI Sync Service ──> Supabase Pos
 
 ### Backend
 - **Python 3.11+ / FastAPI**
-- **SQLAlchemy (Async Engine)** & **Alembic**
-- **Supabase PostgreSQL**
-- **httpx** (Requisições assíncronas OAuth)
-- **APScheduler** (Sincronização agendada em background)
-- **Pydantic v2**
+- **SQLAlchemy 2.0 (Async Engine)**
+- **Alembic (Migrações Versionadas)**
+- **asyncpg / aiosqlite**
+- **PyJWT & Passlib (Bcrypt)**
+- **APScheduler (Agendador Multi-Tenant)**
+- **Pytest & Pytest-Asyncio**
 
 ### Frontend
 - **React 18** + **Vite**
@@ -57,53 +73,69 @@ Kommo CRM API ──(OAuth 2.0)──> FastAPI Sync Service ──> Supabase Pos
 
 ## 💻 Como Executar Localmente
 
-### 1. Requisitos Prévios
-- Python 3.10+
-- Node.js 18+
-
-### 2. Rodando o Backend (FastAPI)
+### 1. Backend (FastAPI)
 
 ```bash
 cd backend
-python -m venv venv
-.\venv\Scripts\activate      # Windows (PowerShell)
-# source venv/bin/activate  # Linux/macOS
+python -m venv .venv
+.\.venv\Scripts\activate      # Windows (PowerShell)
+# source .venv/bin/activate   # Linux/macOS
 
 pip install -r requirements.txt
+
+# Aplicar migrações do banco de dados
+alembic upgrade head
+
+# Inicializar servidor em desenvolvimento
 uvicorn app.main:app --reload --port 8000
 ```
-👉 API disponível em: `http://localhost:8000`  
-👉 Swagger Docs: `http://localhost:8000/docs`
+- 👉 API: `http://localhost:8000`
+- 👉 Documentação Swagger: `http://localhost:8000/docs`
 
-### 3. Rodando o Frontend (React)
+### 2. Frontend (React)
 
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-👉 UI disponível em: `http://localhost:3000`
+- 👉 Dashboard UI: `http://localhost:3000`
 
 ---
 
-## 🐳 Deploy com Docker Compose
+## 🧪 Execução de Testes Automatizados
 
-Para subir a aplicação completa em modo de contêineres:
+O sistema conta com 20 testes defensivos automatizados cobrindo autenticação, RBAC, isolamento multi-tenant, prevenção contra IDOR, renovação de tokens e serviços de dashboard:
 
 ```bash
-docker compose up -d --build
+cd backend
+.\.venv\Scripts\pytest.exe -v
 ```
 
 ---
 
-## ☁️ Deploy em Nuvem (Produção)
+## 🔧 Ferramentas Administrativas (CLI)
 
-- **Frontend**: Envie a pasta `frontend` para a **Vercel** ou **Netlify** (Preset: Vite).
-- **Backend**: Envie a pasta `backend` para o **Render.com** ou **Railway.app**.
-- **Banco de Dados**: Conectado diretamente à sua instância no **Supabase**.
+O backend inclui utilitários CLI para tarefas administrativas seguras:
+
+```bash
+# Criar ou redefinir a organização inicial e administrador
+python -m app.cli seed-admin --org-name "Assessoria Revon" --org-slug "revon" --admin-name "Administrador" --admin-email "admin@lhcrm.com" --admin-password "SenhaSegura123!"
+
+# Provisionar uma nova organização tenant
+python -m app.cli create-org --name "Clínica Nova" --slug "clinicanova"
+```
 
 ---
 
-## 📜 Licença
+## 📚 Documentação Técnica Completa
 
-Propriedade do projeto LHCRM Pro. Todos os direitos reservados.
+- [AUDIT_REPORT.md](file:///c:/Users/alberto/Desktop/LHCRM/AUDIT_REPORT.md) — Relatório Final de Auditoria e Remediações.
+- [ARCHITECTURE.md](file:///c:/Users/alberto/Desktop/LHCRM/ARCHITECTURE.md) — Arquitetura de Software e Fluxos de Dados.
+- [DATABASE.md](file:///c:/Users/alberto/Desktop/LHCRM/DATABASE.md) — Modelagem de Dados, Relacionamentos e Índices.
+- [SECURITY.md](file:///c:/Users/alberto/Desktop/LHCRM/SECURITY.md) — Política de Segurança, Hardening e RBAC.
+- [MULTI_TENANCY.md](file:///c:/Users/alberto/Desktop/LHCRM/MULTI_TENANCY.md) — Arquitetura e Garantias Multi-Tenant.
+- [DEPLOYMENT.md](file:///c:/Users/alberto/Desktop/LHCRM/DEPLOYMENT.md) — Guia de Implantação e Produção.
+- [MIGRATIONS.md](file:///c:/Users/alberto/Desktop/LHCRM/MIGRATIONS.md) — Gerenciamento de Migrações com Alembic.
+- [BACKUP_AND_RECOVERY.md](file:///c:/Users/alberto/Desktop/LHCRM/BACKUP_AND_RECOVERY.md) — Rotinas de Backup e DRP.
+- [PRIVACY.md](file:///c:/Users/alberto/Desktop/LHCRM/PRIVACY.md) — Conformidade com LGPD e Privacidade.

@@ -1,8 +1,8 @@
 import pytest
 import pytest_asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from app.models.domain import Base
+from app.models.domain import Base, Organization
 from app.integrations.kommo.oauth import KommoOAuthService
 from app.integrations.kommo.sync import KommoIntegrationSyncService
 
@@ -16,6 +16,9 @@ async def async_session():
 
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
+        org = Organization(id=1, name="Empresa Teste", slug="teste", is_active=True)
+        session.add(org)
+        await session.commit()
         yield session
 
     async with engine.begin() as conn:
@@ -24,7 +27,7 @@ async def async_session():
 
 @pytest.mark.asyncio
 async def test_subdomain_normalization(async_session: AsyncSession):
-    oauth_service = KommoOAuthService(async_session)
+    oauth_service = KommoOAuthService(async_session, organization_id=1)
 
     assert oauth_service.normalize_subdomain("empresa.kommo.com") == "empresa"
     assert oauth_service.normalize_subdomain("https://minha-clinica.amocrm.com") == "minha-clinica"
@@ -32,7 +35,7 @@ async def test_subdomain_normalization(async_session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_oauth_exchange_and_auto_refresh(async_session: AsyncSession):
-    oauth_service = KommoOAuthService(async_session)
+    oauth_service = KommoOAuthService(async_session, organization_id=1)
 
     # 1. Exchange Code
     integration = await oauth_service.exchange_code(
@@ -47,7 +50,7 @@ async def test_oauth_exchange_and_auto_refresh(async_session: AsyncSession):
     assert integration.refresh_token is not None
 
     # 2. Simulate expired token
-    integration.expires_at = datetime.utcnow() - timedelta(minutes=10)
+    integration.expires_at = datetime.now(timezone.utc) - timedelta(minutes=10)
     await async_session.commit()
 
     # 3. Retrieve valid token (should trigger auto-refresh)
@@ -57,13 +60,13 @@ async def test_oauth_exchange_and_auto_refresh(async_session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_integration_sync_and_stats(async_session: AsyncSession):
-    oauth_service = KommoOAuthService(async_session)
+    oauth_service = KommoOAuthService(async_session, organization_id=1)
     integration = await oauth_service.exchange_code(
         code="demo_test_code",
         raw_subdomain="demo.kommo.com"
     )
 
-    sync_service = KommoIntegrationSyncService(async_session)
+    sync_service = KommoIntegrationSyncService(async_session, organization_id=1)
     sync_result = await sync_service.sync_integration(integration.id, trigger_type="manual")
 
     assert sync_result["status"] == "success"

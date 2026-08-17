@@ -70,15 +70,17 @@ export const KommoCard: React.FC<KommoCardProps> = ({ onStatusChange }) => {
 
     setActionLoading(true);
     try {
-      let url = `/api/integrations/kommo/connect?subdomain=${encodeURIComponent(cleanSubdomain)}`;
-      if (clientIdInput.trim()) {
-        url += `&client_id=${encodeURIComponent(clientIdInput.trim())}`;
-      }
-      if (clientSecretInput.trim()) {
-        url += `&client_secret=${encodeURIComponent(clientSecretInput.trim())}`;
-      }
+      // Secure POST submission: credentials are sent in JSON body, never in URL query params
+      const res = await apiFetch('/api/integrations/kommo/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subdomain: cleanSubdomain,
+          client_id: clientIdInput.trim() || undefined,
+          client_secret: clientSecretInput.trim() || undefined,
+        }),
+      });
 
-      const res = await apiFetch(url);
       const json = await res.json();
       if (res.ok && json.auth_url) {
         if (cleanSubdomain === 'demo') {
@@ -87,7 +89,7 @@ export const KommoCard: React.FC<KommoCardProps> = ({ onStatusChange }) => {
           window.location.href = json.auth_url;
         }
       } else {
-        setFeedbackMsg({ type: 'error', text: 'Erro ao gerar URL de autorização.' });
+        setFeedbackMsg({ type: 'error', text: json.detail || 'Erro ao gerar URL de autorização.' });
       }
     } catch (err: any) {
       setFeedbackMsg({ type: 'error', text: 'Falha de conexão com a API.' });
@@ -277,10 +279,10 @@ export const KommoCard: React.FC<KommoCardProps> = ({ onStatusChange }) => {
               </div>
             </div>
 
-            {/* Entity Counter Grid (Spacious 4-column layout) */}
+            {/* Entity Counter Grid */}
             <div>
               <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-300 mb-4 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-cyan-400" /> Registros Persistidos no Supabase PostgreSQL
+                <Layers className="w-4 h-4 text-cyan-400" /> Registros Sincronizados na Organização
               </h4>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -359,7 +361,7 @@ export const KommoCard: React.FC<KommoCardProps> = ({ onStatusChange }) => {
         )}
       </Card>
 
-      {/* Subdomain Connection Modal - Rendered as a Top-Level Overlay outside Card */}
+      {/* Subdomain Connection Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[#0b101d] rounded-2xl p-7 max-w-lg w-full border border-cyan-500/40 shadow-2xl space-y-6 animate-scale-in text-slate-100">

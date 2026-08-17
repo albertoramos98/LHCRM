@@ -1,28 +1,39 @@
 import logging
 import re
+import hmac
+import hashlib
+import base64
+import json
+import secrets
+import time
 import httpx
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from app.core.config import settings
 from app.integrations.kommo.models import CRMIntegration, IntegrationLog
 
 logger = logging.getLogger(__name__)
 
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
 class KommoOAuthService:
     """
-    Service responsible for Kommo CRM OAuth 2.0 flow:
+    Service responsible for Kommo CRM OAuth 2.0 flow per tenant organization:
     - Subdomain normalization
+    - Cryptographically signed OAuth state generation and validation (HMAC-SHA256)
     - Authorization URL construction
     - Code exchange for access & refresh tokens
-    - Automatic token refresh (expires_at < now())
+    - Automatic token refresh
     - Revocation / Disconnection
-    - Detailed audit logging into integration_logs
+    - Detailed audit logging
     """
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, organization_id: int = 1):
         self.session = session
+        self.organization_id = organization_id
 
     @staticmethod
     def normalize_subdomain(raw_subdomain: str) -> str:
@@ -31,6 +42,72 @@ class KommoOAuthService:
         clean = clean.split(".")[0]
         clean = re.sub(r"[^a-z0-9_-]", "", clean)
         return clean or "demo"
+
+    def create_oauth_state(self, company_id: Optional[str] = None) -> str:
+        """
+        Creates a cryptographically signed OAuth state token containing:
+        - organization_id
+        - nonce (cryptographic random salt)
+        - expiration timestamp (10 minutes TTL)
+        Format: base64url(payload) + '.' + hmac_sha256(raw_payload, SECRET_KEY)
+        """
+        payload = {
+            "org_id": self.organization_id,
+            "company_id": company_id or f"org_{self.organization_id}",
+            "nonce": secrets.token_hex(16),
+            "exp": int(time.time()) + 600 # 10 minutes validity
+        }
+        raw_json = json.dumps(payload, sort_keys=True)
+        raw_b64 = base64.urlsafe_b64encode(raw_json.encode()).decode()
+        signature = hmac.new(
+            settings.SECRET_KEY.encode(),
+            raw_b64.encode(),
+            hashlib.sha256
+        ).hexdigest()
+        return f"{raw_b64}.{signature}"
+
+    @staticmethod
+    def verify_oauth_state(state: str) -> Dict[str, Any]:
+        """
+        Verifies the cryptographic HMAC-SHA256 signature and expiration of the OAuth state.
+        Raises ValueError on any tampering, signature mismatch, or expiration.
+        """
+        if not state or "." not in state:
+            raise ValueError("State OAuth ausente ou com formato inválido.")
+
+        parts = state.split(".")
+        if len(parts) != 2:
+            raise ValueError("Formato de token de state OAuth inválido.")
+
+        raw_b64, signature = parts[0], parts[1]
+
+        # Verify HMAC signature
+        expected_sig = hmac.new(
+            settings.SECRET_KEY.encode(),
+            raw_b64.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(signature, expected_sig):
+            raise ValueError("Assinatura criptográfica do state OAuth inválida ou adulterada.")
+
+        # Decode payload
+        try:
+            raw_json = base64.urlsafe_b64decode(raw_b64.encode()).decode()
+            payload = json.loads(raw_json)
+        except Exception:
+            raise ValueError("Payload do state OAuth corrompido.")
+
+        # Check expiration
+        exp = payload.get("exp", 0)
+        if time.time() > exp:
+            raise ValueError("O token de state OAuth expirou. Por favor, reinicie o fluxo de autorização.")
+
+        org_id = payload.get("org_id")
+        if not org_id:
+            raise ValueError("State OAuth sem identificador de organização.")
+
+        return payload
 
     async def generate_auth_url(
         self,
@@ -43,17 +120,23 @@ class KommoOAuthService:
         cid = client_id.strip() if client_id and client_id.strip() else (settings.KOMMO_CLIENT_ID or "demo_client_id")
         csecret = client_secret.strip() if client_secret and client_secret.strip() else (settings.KOMMO_CLIENT_SECRET or "demo_client_secret")
         redirect_uri = settings.KOMMO_REDIRECT_URI or "http://localhost:8000/api/integrations/kommo/callback"
-        state = company_id or "default_company"
+        
+        # Cryptographically signed state
+        state = self.create_oauth_state(company_id=company_id)
 
-        # Persist or update pending integration with provided credentials
+        # Persist or update pending integration with provided credentials scoped to organization
         res = await self.session.execute(
-            select(CRMIntegration).where(CRMIntegration.subdomain == subdomain)
+            select(CRMIntegration).where(
+                CRMIntegration.organization_id == self.organization_id,
+                CRMIntegration.subdomain == subdomain
+            )
         )
         integration = res.scalar_one_or_none()
 
         if not integration:
             integration = CRMIntegration(
-                company_id=state,
+                organization_id=self.organization_id,
+                company_id=company_id or f"comp_{self.organization_id}",
                 provider="kommo",
                 subdomain=subdomain,
                 client_id=cid,
@@ -68,7 +151,7 @@ class KommoOAuthService:
             integration.redirect_uri = redirect_uri
             if integration.status != "connected":
                 integration.status = "pending"
-            integration.updated_at = datetime.utcnow()
+            integration.updated_at = utc_now()
 
         await self.session.commit()
         
@@ -76,10 +159,12 @@ class KommoOAuthService:
 
     async def log_event(self, integration_id: str, event_type: str, message: str, status: str = "info"):
         log_entry = IntegrationLog(
+            organization_id=self.organization_id,
             integration_id=integration_id,
             type=event_type,
             message=message,
-            status=status
+            status=status,
+            created_at=utc_now()
         )
         self.session.add(log_entry)
         await self.session.commit()
@@ -87,9 +172,12 @@ class KommoOAuthService:
     async def exchange_code(self, code: str, raw_subdomain: str, company_id: Optional[str] = None) -> CRMIntegration:
         subdomain = self.normalize_subdomain(raw_subdomain)
 
-        # Check for existing integration for company or subdomain
+        # Check for existing integration for organization
         res = await self.session.execute(
-            select(CRMIntegration).where(CRMIntegration.subdomain == subdomain)
+            select(CRMIntegration).where(
+                CRMIntegration.organization_id == self.organization_id,
+                CRMIntegration.subdomain == subdomain
+            )
         )
         integration = res.scalar_one_or_none()
 
@@ -97,14 +185,14 @@ class KommoOAuthService:
         client_secret = (integration.client_secret if integration and integration.client_secret else settings.KOMMO_CLIENT_SECRET) or "demo_client_secret"
         redirect_uri = (integration.redirect_uri if integration and integration.redirect_uri else settings.KOMMO_REDIRECT_URI) or "http://localhost:8000/api/integrations/kommo/callback"
 
-        now = datetime.utcnow()
+        now = utc_now()
 
         if subdomain == "demo" or code.startswith("demo_"):
             access_token = f"demo_access_token_{subdomain}"
             refresh_token = f"demo_refresh_token_{subdomain}"
             expires_at = now + timedelta(seconds=86400) # 24h
         else:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 token_url = f"https://{subdomain}.kommo.com/oauth2/access_token"
                 payload = {
                     "client_id": client_id,
@@ -115,8 +203,8 @@ class KommoOAuthService:
                 }
                 response = await client.post(token_url, json=payload)
                 if response.status_code != 200:
-                    err_msg = f"OAuth Token Exchange failed ({response.status_code}): {response.text}"
-                    logger.error(err_msg)
+                    err_msg = f"OAuth Token Exchange failed ({response.status_code})"
+                    logger.error(f"{err_msg}: {response.text}")
                     if integration:
                         await self.log_event(integration.id, "oauth_error", err_msg, status="error")
                     raise ValueError(err_msg)
@@ -129,7 +217,8 @@ class KommoOAuthService:
 
         if not integration:
             integration = CRMIntegration(
-                company_id=company_id or "default_company",
+                organization_id=self.organization_id,
+                company_id=company_id or f"comp_{self.organization_id}",
                 provider="kommo",
                 subdomain=subdomain,
                 client_id=client_id,
@@ -165,18 +254,23 @@ class KommoOAuthService:
 
     async def get_valid_token(self, integration_id: str) -> str:
         """
-        Retrieves access_token for integration.
+        Retrieves access_token for integration scoped to organization.
         Checks if expires_at < now(), and automatically executes token refresh if expired!
         """
         res = await self.session.execute(
-            select(CRMIntegration).where(CRMIntegration.id == integration_id)
+            select(CRMIntegration).where(
+                CRMIntegration.id == integration_id,
+                CRMIntegration.organization_id == self.organization_id
+            )
         )
         integration = res.scalar_one_or_none()
         if not integration or integration.status != "connected":
             raise ValueError("Integração Kommo CRM não encontrada ou desconectada.")
 
-        now = datetime.utcnow()
-        if integration.expires_at and integration.expires_at < (now + timedelta(minutes=5)):
+        now = utc_now()
+        exp_aware = integration.expires_at.replace(tzinfo=timezone.utc) if (integration.expires_at and integration.expires_at.tzinfo is None) else integration.expires_at
+
+        if exp_aware and exp_aware < (now + timedelta(minutes=5)):
             logger.info(f"Access token for integration {integration.id} is expired. Triggering auto-refresh...")
             integration = await self.refresh_token(integration.id)
 
@@ -184,20 +278,23 @@ class KommoOAuthService:
 
     async def refresh_token(self, integration_id: str) -> CRMIntegration:
         res = await self.session.execute(
-            select(CRMIntegration).where(CRMIntegration.id == integration_id)
+            select(CRMIntegration).where(
+                CRMIntegration.id == integration_id,
+                CRMIntegration.organization_id == self.organization_id
+            )
         )
         integration = res.scalar_one_or_none()
         if not integration:
             raise ValueError("Integração não encontrada.")
 
-        now = datetime.utcnow()
+        now = utc_now()
 
         if integration.subdomain == "demo" or (integration.refresh_token and integration.refresh_token.startswith("demo_")):
             new_access_token = f"demo_access_token_{integration.subdomain}_refreshed"
             new_refresh_token = f"demo_refresh_token_{integration.subdomain}_refreshed"
             new_expires_at = now + timedelta(seconds=86400)
         else:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 token_url = f"https://{integration.subdomain}.kommo.com/oauth2/access_token"
                 payload = {
                     "client_id": integration.client_id or settings.KOMMO_CLIENT_ID,
@@ -208,8 +305,8 @@ class KommoOAuthService:
                 }
                 response = await client.post(token_url, json=payload)
                 if response.status_code != 200:
-                    err_msg = f"Falha ao renovar refresh token ({response.status_code}): {response.text}"
-                    logger.error(err_msg)
+                    err_msg = f"Falha ao renovar refresh token ({response.status_code})"
+                    logger.error(f"{err_msg}: {response.text}")
                     integration.status = "expired"
                     await self.session.commit()
                     await self.log_event(integration.id, "oauth_error", err_msg, status="error")
@@ -240,7 +337,10 @@ class KommoOAuthService:
 
     async def disconnect(self, integration_id: str) -> dict:
         res = await self.session.execute(
-            select(CRMIntegration).where(CRMIntegration.id == integration_id)
+            select(CRMIntegration).where(
+                CRMIntegration.id == integration_id,
+                CRMIntegration.organization_id == self.organization_id
+            )
         )
         integration = res.scalar_one_or_none()
         if not integration:
@@ -249,7 +349,7 @@ class KommoOAuthService:
         integration.status = "disconnected"
         integration.access_token = None
         integration.refresh_token = None
-        integration.updated_at = datetime.utcnow()
+        integration.updated_at = utc_now()
 
         await self.session.commit()
 

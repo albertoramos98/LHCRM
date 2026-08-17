@@ -1,12 +1,13 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, case
 from app.models.domain import Lead, LeadStatus, Pipeline, User, Task, Event, LeadHistory
 
 class DashboardRepository:
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, organization_id: int):
         self.session = session
+        self.organization_id = organization_id
 
     def _build_lead_filter_query(
         self,
@@ -23,15 +24,16 @@ class DashboardRepository:
         user_role: str = "Admin",
         current_user_id: Optional[int] = None,
     ):
-        conditions = []
+        # Strict Multi-Tenant scoping
+        conditions = [Lead.organization_id == self.organization_id]
 
         # Period filtering
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if period == "today":
-            dt_start = datetime(now.year, now.month, now.day)
+            dt_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
             conditions.append(Lead.created_at >= dt_start)
         elif period == "yesterday":
-            dt_end = datetime(now.year, now.month, now.day)
+            dt_end = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
             dt_start = dt_end - timedelta(days=1)
             conditions.append(and_(Lead.created_at >= dt_start, Lead.created_at < dt_end))
         elif period == "7days":
@@ -43,7 +45,11 @@ class DashboardRepository:
         elif period == "custom" and start_date and end_date:
             try:
                 s_dt = datetime.fromisoformat(start_date)
+                if s_dt.tzinfo is None:
+                    s_dt = s_dt.replace(tzinfo=timezone.utc)
                 e_dt = datetime.fromisoformat(end_date)
+                if e_dt.tzinfo is None:
+                    e_dt = e_dt.replace(tzinfo=timezone.utc)
                 conditions.append(and_(Lead.created_at >= s_dt, Lead.created_at <= e_dt))
             except Exception:
                 pass
@@ -72,9 +78,76 @@ class DashboardRepository:
 
     async def get_filtered_leads(self, **kwargs) -> List[Lead]:
         conditions = self._build_lead_filter_query(**kwargs)
-        query = select(Lead).where(and_(*conditions)) if conditions else select(Lead)
+        query = select(Lead).where(and_(*conditions))
         res = await self.session.execute(query)
         return list(res.scalars().all())
+
+    async def get_filter_options(self) -> Dict[str, Any]:
+        # Consultoras belonging to this organization
+        users_res = await self.session.execute(
+            select(User.id, User.name).where(
+                User.organization_id == self.organization_id,
+                User.is_active == True
+            )
+        )
+        consultoras = [{"id": u[0], "name": u[1]} for u in users_res.all()]
+
+        # Pipelines
+        pipes_res = await self.session.execute(
+            select(Pipeline.id, Pipeline.name).where(Pipeline.organization_id == self.organization_id)
+        )
+        pipelines = [{"id": p[0], "name": p[1]} for p in pipes_res.all()]
+
+        # Statuses
+        statuses_res = await self.session.execute(
+            select(LeadStatus.id, LeadStatus.name, LeadStatus.pipeline_id).where(
+                LeadStatus.organization_id == self.organization_id
+            )
+        )
+        statuses = [{"id": s[0], "name": s[1], "pipeline_id": s[2]} for s in statuses_res.all()]
+
+        # Unidades, Procedimentos, Origens, Suborigens scoped to tenant
+        units_res = await self.session.execute(
+            select(Lead.unidade).where(
+                Lead.organization_id == self.organization_id,
+                Lead.unidade.isnot(None)
+            ).distinct()
+        )
+        unidades = [u[0] for u in units_res.all() if u[0]]
+
+        procs_res = await self.session.execute(
+            select(Lead.procedimento).where(
+                Lead.organization_id == self.organization_id,
+                Lead.procedimento.isnot(None)
+            ).distinct()
+        )
+        procedimentos = [p[0] for p in procs_res.all() if p[0]]
+
+        origs_res = await self.session.execute(
+            select(Lead.origem).where(
+                Lead.organization_id == self.organization_id,
+                Lead.origem.isnot(None)
+            ).distinct()
+        )
+        origens = [o[0] for o in origs_res.all() if o[0]]
+
+        suborigs_res = await self.session.execute(
+            select(Lead.suborigem).where(
+                Lead.organization_id == self.organization_id,
+                Lead.suborigem.isnot(None)
+            ).distinct()
+        )
+        suborigens = [s[0] for s in suborigs_res.all() if s[0]]
+
+        return {
+            "consultoras": consultoras,
+            "pipelines": pipelines,
+            "statuses": statuses,
+            "unidades": unidades,
+            "procedimentos": procedimentos,
+            "origens": origens,
+            "suborigens": suborigens
+        }
 
     async def get_performance_metrics(self, **kwargs) -> Dict[str, Any]:
         leads = await self.get_filtered_leads(**kwargs)
@@ -92,9 +165,7 @@ class DashboardRepository:
         responded_count = len(response_times)
         response_rate = (responded_count / total_leads * 100.0) if total_leads > 0 else 0.0
 
-        # Active leads: status is active (not won/lost status type 2 or 3)
         active_leads = len([l for l in leads if l.closed_at is None and l.loss_reason is None])
-
         sales_cycles = [l.sales_cycle_days for l in leads if l.sales_cycle_days is not None]
         avg_sales_cycle = (sum(sales_cycles) / len(sales_cycles)) if sales_cycles else 0.0
 
@@ -112,7 +183,6 @@ class DashboardRepository:
         total_price = sum(l.price for l in won_leads)
         overall_ticket = (total_price / len(won_leads)) if won_leads else 0.0
 
-        # By Procedure
         by_procedure_map: Dict[str, List[float]] = {}
         for l in won_leads:
             proc = l.procedimento or "Não Especificado"
@@ -123,7 +193,6 @@ class DashboardRepository:
             for k, v in by_procedure_map.items()
         ]
 
-        # By Unit
         by_unit_map: Dict[str, List[float]] = {}
         for l in won_leads:
             u = l.unidade or "Não Especificada"
@@ -147,7 +216,6 @@ class DashboardRepository:
         total_revenue = sum(l.price for l in won_leads)
         total_sales = len(won_leads)
 
-        # By Unit
         by_unit_map: Dict[str, float] = {}
         for l in won_leads:
             u = l.unidade or "Não Especificada"
@@ -158,7 +226,6 @@ class DashboardRepository:
             for k, v in by_unit_map.items()
         ]
 
-        # By Procedure
         by_procedure_map: Dict[str, float] = {}
         for l in won_leads:
             p = l.procedimento or "Não Especificado"
@@ -180,8 +247,12 @@ class DashboardRepository:
         leads = await self.get_filtered_leads(**kwargs)
         total_leads = len(leads)
 
-        # Query all statuses from DB
-        status_res = await self.session.execute(select(LeadStatus).order_by(LeadStatus.sort_order.asc()))
+        # Query all statuses from DB for this organization
+        status_res = await self.session.execute(
+            select(LeadStatus).where(
+                LeadStatus.organization_id == self.organization_id
+            ).order_by(LeadStatus.sort_order.asc())
+        )
         all_statuses = list(status_res.scalars().all())
 
         stages = []
@@ -189,8 +260,6 @@ class DashboardRepository:
             stage_leads = [l for l in leads if l.status_id == s.id]
             cnt = len(stage_leads)
             pct = (cnt / total_leads * 100.0) if total_leads > 0 else 0.0
-            
-            # Conversion rate relative to total leads
             conv_rate = (cnt / total_leads * 100.0) if total_leads > 0 else 0.0
             losses_cnt = len([l for l in stage_leads if l.loss_reason])
 
@@ -242,7 +311,9 @@ class DashboardRepository:
 
     async def get_ranking_metrics(self, **kwargs) -> Dict[str, Any]:
         leads = await self.get_filtered_leads(**kwargs)
-        users_res = await self.session.execute(select(User))
+        users_res = await self.session.execute(
+            select(User).where(User.organization_id == self.organization_id)
+        )
         users = {u.id: u.name for u in users_res.scalars().all()}
 
         rep_map: Dict[int, Dict[str, Any]] = {}
@@ -269,7 +340,6 @@ class DashboardRepository:
             sales_cnt = data["sales_count"]
             tot_leads = data["total_leads"]
             rec = data["receita"]
-            prices = data["prices"]
             ticket = (rec / sales_cnt) if sales_cnt > 0 else 0.0
             conv = (sales_cnt / tot_leads * 100.0) if tot_leads > 0 else 0.0
 
@@ -287,14 +357,18 @@ class DashboardRepository:
         }
 
     async def get_followup_metrics(self, **kwargs) -> Dict[str, Any]:
-        now = datetime.utcnow()
-        tasks_res = await self.session.execute(select(Task))
+        now = datetime.now(timezone.utc)
+        tasks_res = await self.session.execute(
+            select(Task).where(Task.organization_id == self.organization_id)
+        )
         tasks = list(tasks_res.scalars().all())
 
-        users_res = await self.session.execute(select(User))
+        users_res = await self.session.execute(
+            select(User).where(User.organization_id == self.organization_id)
+        )
         users = {u.id: u.name for u in users_res.scalars().all()}
 
-        overdue_tasks = [t for t in tasks if not t.is_completed and t.due_date and t.due_date < now]
+        overdue_tasks = [t for t in tasks if not t.is_completed and t.due_date and (t.due_date.replace(tzinfo=timezone.utc) if t.due_date.tzinfo is None else t.due_date) < now]
         open_tasks = [t for t in tasks if not t.is_completed]
         completed_tasks = [t for t in tasks if t.is_completed]
 
@@ -310,7 +384,8 @@ class DashboardRepository:
                 by_user_map[uid]["concluidas"] += 1
             else:
                 by_user_map[uid]["abertas"] += 1
-                if t.due_date and t.due_date < now:
+                t_due = t.due_date.replace(tzinfo=timezone.utc) if (t.due_date and t.due_date.tzinfo is None) else t.due_date
+                if t_due and t_due < now:
                     by_user_map[uid]["atrasadas"] += 1
 
         by_employee = [
@@ -328,7 +403,6 @@ class DashboardRepository:
     async def get_origins_metrics(self, **kwargs) -> Dict[str, Any]:
         leads = await self.get_filtered_leads(**kwargs)
 
-        # Sales & Revenue & Conversion by Source
         orig_map: Dict[str, Dict[str, Any]] = {}
         suborig_map: Dict[str, Dict[str, Any]] = {}
 

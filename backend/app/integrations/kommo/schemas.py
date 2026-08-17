@@ -1,9 +1,10 @@
 from pydantic import BaseModel, Field
 from typing import Optional, Dict
 
-class ConnectUrlRequest(BaseModel):
-    subdomain: str = Field(..., description="Kommo subdomain e.g. empresa.kommo.com or empresa")
-    company_id: Optional[str] = None
+class ConnectIntegrationRequest(BaseModel):
+    subdomain: str = Field(..., min_length=2, max_length=100, description="Subdomínio da conta Kommo CRM")
+    client_id: Optional[str] = Field(None, max_length=255, description="Client ID gerado no Kommo")
+    client_secret: Optional[str] = Field(None, max_length=255, description="Client Secret gerado no Kommo")
 
 class ConnectUrlResponse(BaseModel):
     auth_url: str
@@ -11,6 +12,7 @@ class ConnectUrlResponse(BaseModel):
 
 class IntegrationStatusResponse(BaseModel):
     id: Optional[str] = None
+    organization_id: Optional[int] = None
     company_id: Optional[str] = None
     provider: str = "kommo"
     subdomain: Optional[str] = None

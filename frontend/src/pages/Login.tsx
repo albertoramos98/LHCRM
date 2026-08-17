@@ -6,6 +6,7 @@ interface LoginProps {
     access_token: string;
     refresh_token: string;
     user: { id: number; name: string; email: string; role: string };
+    organization?: { id: number; name: string; slug: string };
   }) => void;
 }
 
@@ -32,7 +33,7 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
       if (!response.ok) {
@@ -62,6 +63,7 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           email: data.email,
           role: data.role,
         },
+        organization: data.organization,
       });
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro ao fazer login. Tente novamente.');
@@ -90,7 +92,7 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             LHCRM <span className="text-cyan-400">Pro</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1 font-medium">
-            Executive Administrative Analytics & CRM Integration
+            Multi-Tenant Executive Analytics & CRM Integration
           </p>
         </div>
 
@@ -114,7 +116,7 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             {/* Email Field */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                Usuário
+                Usuário / E-mail
               </label>
               <div className="relative group">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors">
@@ -124,7 +126,7 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Seu usuário"
+                  placeholder="Seu usuário ou e-mail"
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/20 transition-all font-medium"
                   required
                 />
@@ -174,8 +176,6 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               )}
             </button>
           </form>
-
-
         </div>
 
         {/* Footer legal/copy */}

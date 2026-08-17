@@ -2,10 +2,14 @@ let isRefreshingPromise: Promise<string | null> | null = null;
 
 export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const token = localStorage.getItem('lhcrm_access_token');
+  const orgId = localStorage.getItem('lhcrm_org_id');
   
   const headers = new Headers(options.headers || {});
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
+  }
+  if (orgId) {
+    headers.set('X-Organization-ID', orgId);
   }
   
   const mergedOptions: RequestInit = {
@@ -38,6 +42,9 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
             const data = await refreshRes.json();
             localStorage.setItem('lhcrm_access_token', data.access_token);
             localStorage.setItem('lhcrm_refresh_token', data.refresh_token);
+            if (data.organization?.id) {
+              localStorage.setItem('lhcrm_org_id', String(data.organization.id));
+            }
             return data.access_token;
           } catch (err) {
             triggerLogout();
@@ -52,6 +59,9 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
       if (newAccessToken) {
         const retryHeaders = new Headers(options.headers || {});
         retryHeaders.set('Authorization', `Bearer ${newAccessToken}`);
+        if (orgId) {
+          retryHeaders.set('X-Organization-ID', orgId);
+        }
         return await fetch(url, { ...options, headers: retryHeaders });
       }
     } catch (err) {
@@ -67,5 +77,6 @@ export function triggerLogout() {
   localStorage.removeItem('lhcrm_access_token');
   localStorage.removeItem('lhcrm_refresh_token');
   localStorage.removeItem('lhcrm_user');
+  localStorage.removeItem('lhcrm_org_id');
   window.dispatchEvent(new CustomEvent('auth-logout'));
 }

@@ -13,7 +13,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Building2,
-  UserCheck,
   Zap,
   LogOut,
 } from 'lucide-react';
@@ -25,6 +24,7 @@ interface SidebarProps {
   onToggleCollapse: () => void;
   kommoConnected: boolean;
   user: { name: string; email: string; role: string } | null;
+  organization?: { id: number; name: string; slug: string } | null;
   onLogout: () => void;
 }
 
@@ -35,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse,
   kommoConnected,
   user,
+  organization,
   onLogout,
 }) => {
   const menuItems = [
@@ -83,7 +84,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   LHCRM <span className="text-cyan-400">Pro</span>
                 </h1>
                 <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                  Analytics SaaS
+                  Multi-Tenant SaaS
                 </span>
               </div>
             )}
@@ -98,13 +99,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* Workspace Selector */}
+        {/* Workspace / Organization Badge */}
         {!collapsed && (
           <div className="p-3 mx-3 mt-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2 overflow-hidden">
               <Building2 className="w-4 h-4 text-cyan-400 shrink-0" />
-              <span className="text-xs font-bold text-slate-200 truncate">
-                Grupo Estética Avançada
+              <span className="text-xs font-bold text-slate-200 truncate" title={organization?.name || 'Organização Ativa'}>
+                {organization?.name || 'Organização Ativa'}
               </span>
             </div>
             <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />

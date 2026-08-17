@@ -29,9 +29,15 @@ export function App() {
     return storedUser ? JSON.parse(storedUser) : null;
   });
 
+  const [organization, setOrganization] = useState<{ id: number; name: string; slug: string } | null>(() => {
+    const storedOrg = localStorage.getItem('lhcrm_org');
+    return storedOrg ? JSON.parse(storedOrg) : null;
+  });
+
   useEffect(() => {
     const handleLogoutEvent = () => {
       setUser(null);
+      setOrganization(null);
     };
     window.addEventListener('auth-logout', handleLogoutEvent);
     return () => window.removeEventListener('auth-logout', handleLogoutEvent);
@@ -41,10 +47,16 @@ export function App() {
     access_token: string;
     refresh_token: string;
     user: { id: number; name: string; email: string; role: string };
+    organization?: { id: number; name: string; slug: string };
   }) => {
     localStorage.setItem('lhcrm_access_token', tokenData.access_token);
     localStorage.setItem('lhcrm_refresh_token', tokenData.refresh_token);
     localStorage.setItem('lhcrm_user', JSON.stringify(tokenData.user));
+    if (tokenData.organization) {
+      localStorage.setItem('lhcrm_org', JSON.stringify(tokenData.organization));
+      localStorage.setItem('lhcrm_org_id', String(tokenData.organization.id));
+      setOrganization(tokenData.organization);
+    }
     setUser(tokenData.user);
   };
 
@@ -171,6 +183,7 @@ export function App() {
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         kommoConnected={kommoConnected}
         user={user}
+        organization={organization}
         onLogout={handleLogout}
       />
 

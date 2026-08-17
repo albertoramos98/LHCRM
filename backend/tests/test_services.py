@@ -1,7 +1,7 @@
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from app.models.domain import Base
+from app.models.domain import Base, Organization
 from app.services.sync_service import KommoSyncService
 from app.services.dashboard_service import DashboardService
 from app.providers.kommo_provider import KommoProvider
@@ -16,6 +16,10 @@ async def async_session():
 
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
+        # Create default organization
+        org = Organization(id=1, name="Empresa Teste", slug="teste", is_active=True)
+        session.add(org)
+        await session.commit()
         yield session
 
     async with engine.begin() as conn:
@@ -25,7 +29,7 @@ async def async_session():
 @pytest.mark.asyncio
 async def test_kommo_sync_service_execution(async_session: AsyncSession):
     provider = KommoProvider(subdomain="demo")
-    sync_service = KommoSyncService(async_session, provider=provider)
+    sync_service = KommoSyncService(async_session, organization_id=1, provider=provider)
 
     result = await sync_service.execute_sync(trigger_type="manual")
 
@@ -40,10 +44,10 @@ async def test_kommo_sync_service_execution(async_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_dashboard_service_metrics(async_session: AsyncSession):
     provider = KommoProvider(subdomain="demo")
-    sync_service = KommoSyncService(async_session, provider=provider)
+    sync_service = KommoSyncService(async_session, organization_id=1, provider=provider)
     await sync_service.execute_sync(trigger_type="manual")
 
-    dashboard_service = DashboardService(async_session)
+    dashboard_service = DashboardService(async_session, organization_id=1)
 
     # Test Overview
     overview = await dashboard_service.get_overview(period="30days")

@@ -5,13 +5,23 @@ from app.repositories.dashboard_repository import DashboardRepository
 from app.core.cache import memory_cache
 
 class DashboardService:
-    def __init__(self, session: AsyncSession):
-        self.repository = DashboardRepository(session)
+    def __init__(self, session: AsyncSession, organization_id: int):
+        self.organization_id = organization_id
+        self.repository = DashboardRepository(session, organization_id)
 
     def _make_cache_key(self, prefix: str, params: Dict[str, Any]) -> str:
-        # Sort keys for consistent cache key generation
+        # Include organization_id for strict multi-tenant cache isolation
         serialized = json.dumps(params, sort_keys=True, default=str)
-        return f"{prefix}:{serialized}"
+        return f"org:{self.organization_id}:{prefix}:{serialized}"
+
+    async def get_filter_options(self) -> Dict[str, Any]:
+        key = f"org:{self.organization_id}:options"
+        cached = memory_cache.get(key)
+        if cached:
+            return cached
+        options = await self.repository.get_filter_options()
+        memory_cache.set(key, options, ttl=60)
+        return options
 
     async def get_overview(self, **params) -> Dict[str, Any]:
         key = self._make_cache_key("overview", params)

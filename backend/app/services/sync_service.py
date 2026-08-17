@@ -9,18 +9,20 @@ logger = logging.getLogger(__name__)
 
 class KommoSyncService:
     """
-    Service responsible for synchronizing Kommo CRM entities into local PostgreSQL.
-    Supports manual & automatic triggers, logs sync progress, and clears API cache upon sync completion.
+    Service responsible for synchronizing Kommo CRM entities into local database.
+    Supports manual & automatic triggers, logs sync progress per organization,
+    and clears API cache upon sync completion.
     """
 
-    def __init__(self, session: AsyncSession, provider: CRMProvider = None):
+    def __init__(self, session: AsyncSession, organization_id: int = 1, provider: CRMProvider = None):
         self.session = session
+        self.organization_id = organization_id
         self.provider = provider or KommoProvider()
-        self.repository = SyncRepository(session)
+        self.repository = SyncRepository(session, organization_id=organization_id)
 
     async def execute_sync(self, trigger_type: str = "automatic") -> dict:
         log = await self.repository.create_sync_log(trigger_type=trigger_type)
-        logger.info(f"Starting CRM synchronization (Log ID #{log.id}, trigger: {trigger_type})...")
+        logger.info(f"Starting CRM synchronization for Org {self.organization_id} (Log ID #{log.id}, trigger: {trigger_type})...")
 
         items_count = 0
         try:
@@ -57,14 +59,14 @@ class KommoSyncService:
             events = await self.provider.get_events()
             items_count += await self.repository.upsert_events(events)
 
-            # Finish sync log & invalidate dashboard cache
+            # Finish sync log & invalidate tenant cache
             await self.repository.finish_sync_log(
                 log_id=log.id,
                 status="success",
                 items_synced=items_count
             )
             memory_cache.clear()
-            logger.info(f"Sync #{log.id} completed successfully. Synced {items_count} items.")
+            logger.info(f"Sync #{log.id} for Org {self.organization_id} completed successfully. Synced {items_count} items.")
 
             return {
                 "status": "success",
@@ -74,7 +76,7 @@ class KommoSyncService:
             }
 
         except Exception as e:
-            logger.error(f"Error during CRM sync execution: {e}", exc_info=True)
+            logger.error(f"Error during CRM sync execution for Org {self.organization_id}: {e}", exc_info=True)
             await self.repository.finish_sync_log(
                 log_id=log.id,
                 status="failed",
@@ -96,7 +98,8 @@ class KommoSyncService:
                 "status": "never_run",
                 "last_synced_at": None,
                 "items_synced": 0,
-                "trigger_type": None
+                "trigger_type": None,
+                "error_message": None
             }
         return {
             "status": log.status,
