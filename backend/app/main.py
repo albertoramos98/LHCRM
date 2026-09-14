@@ -69,18 +69,21 @@ async def lifespan(app: FastAPI):
         )
 
         # Trigger initial data sync for default organization if fresh
-        sync_service = KommoSyncService(session, organization_id=org.id)
-        latest_log = await sync_service.get_latest_sync_status()
-        if latest_log["status"] == "never_run":
-            logger.info(f"Database is empty for Org '{org.name}'. Executing initial Kommo CRM data synchronization...")
-            await sync_service.execute_sync(trigger_type="automatic")
-        else:
-            try:
-                from app.services.html_generator import generate_dashboard_html
-                await generate_dashboard_html(session, organization_id=org.id, output_path=f"static/dashboard_{org.slug}.html")
-                logger.info("Initial dashboard HTML generated successfully.")
-            except Exception as e:
-                logger.error(f"Failed to generate initial dashboard HTML: {e}")
+        try:
+            sync_service = KommoSyncService(session, organization_id=org.id)
+            latest_log = await sync_service.get_latest_sync_status()
+            if latest_log["status"] == "never_run":
+                logger.info(f"Database is empty for Org '{org.name}'. Executing initial Kommo CRM data synchronization...")
+                await sync_service.execute_sync(trigger_type="automatic")
+            else:
+                try:
+                    from app.services.html_generator import generate_dashboard_html
+                    await generate_dashboard_html(session, organization_id=org.id, output_path=f"static/dashboard_{org.slug}.html")
+                    logger.info("Initial dashboard HTML generated successfully.")
+                except Exception as e:
+                    logger.error(f"Failed to generate initial dashboard HTML: {e}")
+        except Exception as e:
+            logger.error(f"Initial sync warning during startup: {e}", exc_info=True)
 
     # Start APScheduler for auto sync
     start_scheduler()

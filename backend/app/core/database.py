@@ -178,6 +178,97 @@ async def _safe_postgres_migration(conn):
                 END IF;
             END $$;
         """))
+
+        # 5. Ensure default organization exists, backfill legacy rows, and fix legacy single-column unique indexes
+        await conn.execute(text("""
+            DO $$
+            DECLARE
+                default_org_id INTEGER;
+            BEGIN
+                -- Ensure default org exists
+                INSERT INTO organizations (name, slug, is_active, created_at, updated_at)
+                SELECT 'Assessoria Revon', 'revon', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                WHERE NOT EXISTS (SELECT 1 FROM organizations WHERE slug = 'revon');
+
+                SELECT id INTO default_org_id FROM organizations WHERE slug = 'revon' LIMIT 1;
+
+                IF default_org_id IS NOT NULL THEN
+                    UPDATE users SET organization_id = default_org_id WHERE organization_id IS NULL;
+                    UPDATE companies SET organization_id = default_org_id WHERE organization_id IS NULL;
+                    UPDATE contacts SET organization_id = default_org_id WHERE organization_id IS NULL;
+                    UPDATE pipelines SET organization_id = default_org_id WHERE organization_id IS NULL;
+                    UPDATE lead_status SET organization_id = default_org_id WHERE organization_id IS NULL;
+                    UPDATE tags SET organization_id = default_org_id WHERE organization_id IS NULL;
+                    UPDATE custom_fields SET organization_id = default_org_id WHERE organization_id IS NULL;
+                    UPDATE leads SET organization_id = default_org_id WHERE organization_id IS NULL;
+                    UPDATE tasks SET organization_id = default_org_id WHERE organization_id IS NULL;
+                    UPDATE events SET organization_id = default_org_id WHERE organization_id IS NULL;
+                    UPDATE lead_history SET organization_id = default_org_id WHERE organization_id IS NULL;
+                    UPDATE sync_logs SET organization_id = default_org_id WHERE organization_id IS NULL;
+                END IF;
+
+                -- Drop legacy unique indexes on single external_id column and recreate as regular indexes
+                BEGIN
+                    DROP INDEX IF EXISTS ix_users_external_id;
+                    CREATE INDEX IF NOT EXISTS ix_users_external_id ON users (external_id);
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END;
+
+                BEGIN
+                    DROP INDEX IF EXISTS ix_companies_external_id;
+                    CREATE INDEX IF NOT EXISTS ix_companies_external_id ON companies (external_id);
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END;
+
+                BEGIN
+                    DROP INDEX IF EXISTS ix_contacts_external_id;
+                    CREATE INDEX IF NOT EXISTS ix_contacts_external_id ON contacts (external_id);
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END;
+
+                BEGIN
+                    DROP INDEX IF EXISTS ix_pipelines_external_id;
+                    CREATE INDEX IF NOT EXISTS ix_pipelines_external_id ON pipelines (external_id);
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END;
+
+                BEGIN
+                    DROP INDEX IF EXISTS ix_lead_status_external_id;
+                    CREATE INDEX IF NOT EXISTS ix_lead_status_external_id ON lead_status (external_id);
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END;
+
+                BEGIN
+                    DROP INDEX IF EXISTS ix_tags_external_id;
+                    CREATE INDEX IF NOT EXISTS ix_tags_external_id ON tags (external_id);
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END;
+
+                BEGIN
+                    DROP INDEX IF EXISTS ix_custom_fields_external_id;
+                    CREATE INDEX IF NOT EXISTS ix_custom_fields_external_id ON custom_fields (external_id);
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END;
+
+                BEGIN
+                    DROP INDEX IF EXISTS ix_leads_external_id;
+                    CREATE INDEX IF NOT EXISTS ix_leads_external_id ON leads (external_id);
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END;
+
+                BEGIN
+                    DROP INDEX IF EXISTS ix_tasks_external_id;
+                    CREATE INDEX IF NOT EXISTS ix_tasks_external_id ON tasks (external_id);
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END;
+
+                BEGIN
+                    DROP INDEX IF EXISTS ix_events_external_id;
+                    CREATE INDEX IF NOT EXISTS ix_events_external_id ON events (external_id);
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END;
+            END $$;
+        """))
     except Exception as exc:
         logger.warning(f"Self-healing Postgres schema update notice: {exc}")
 

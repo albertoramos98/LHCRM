@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, and_
+from sqlalchemy import select, update, and_, or_
 from app.models.domain import (
     User, Contact, Company, Pipeline, LeadStatus, Lead, Task, Event,
     CustomField, Tag, SyncLog, LeadHistory, OrganizationMember
@@ -64,15 +64,33 @@ class SyncRepository:
 
             res = await self.session.execute(
                 select(User).where(
-                    User.organization_id == self.organization_id,
-                    User.external_id == ext_id
+                    or_(
+                        and_(User.organization_id == self.organization_id, User.external_id == ext_id),
+                        and_(User.organization_id.is_(None), User.external_id == ext_id)
+                    )
                 )
             )
             user = res.scalar_one_or_none()
             if user:
+                user.organization_id = self.organization_id
                 user.name = name
                 user.email = email
                 user.role = role
+
+                # Ensure membership
+                mem_res = await self.session.execute(
+                    select(OrganizationMember).where(
+                        OrganizationMember.organization_id == self.organization_id,
+                        OrganizationMember.user_id == user.id
+                    )
+                )
+                if not mem_res.scalar_one_or_none():
+                    mem = OrganizationMember(
+                        organization_id=self.organization_id,
+                        user_id=user.id,
+                        role=role
+                    )
+                    self.session.add(mem)
             else:
                 # Check if email is already taken by a different user
                 email_res = await self.session.execute(select(User).where(User.email == email))
@@ -110,12 +128,15 @@ class SyncRepository:
 
             res = await self.session.execute(
                 select(Pipeline).where(
-                    Pipeline.organization_id == self.organization_id,
-                    Pipeline.external_id == p_ext_id
+                    or_(
+                        and_(Pipeline.organization_id == self.organization_id, Pipeline.external_id == p_ext_id),
+                        and_(Pipeline.organization_id.is_(None), Pipeline.external_id == p_ext_id)
+                    )
                 )
             )
             pipeline = res.scalar_one_or_none()
             if pipeline:
+                pipeline.organization_id = self.organization_id
                 pipeline.name = p_name
                 pipeline.is_main = is_main
             else:
@@ -138,12 +159,15 @@ class SyncRepository:
 
                 s_res = await self.session.execute(
                     select(LeadStatus).where(
-                        LeadStatus.organization_id == self.organization_id,
-                        LeadStatus.external_id == s_ext_id
+                        or_(
+                            and_(LeadStatus.organization_id == self.organization_id, LeadStatus.external_id == s_ext_id),
+                            and_(LeadStatus.organization_id.is_(None), LeadStatus.external_id == s_ext_id)
+                        )
                     )
                 )
                 status_obj = s_res.scalar_one_or_none()
                 if status_obj:
+                    status_obj.organization_id = self.organization_id
                     status_obj.name = s_name
                     status_obj.sort_order = sort_order
                     status_obj.color = color
@@ -174,12 +198,15 @@ class SyncRepository:
 
             res = await self.session.execute(
                 select(Contact).where(
-                    Contact.organization_id == self.organization_id,
-                    Contact.external_id == ext_id
+                    or_(
+                        and_(Contact.organization_id == self.organization_id, Contact.external_id == ext_id),
+                        and_(Contact.organization_id.is_(None), Contact.external_id == ext_id)
+                    )
                 )
             )
             contact = res.scalar_one_or_none()
             if contact:
+                contact.organization_id = self.organization_id
                 contact.name = name
                 contact.phone = phone
                 contact.email = email
@@ -204,12 +231,15 @@ class SyncRepository:
 
             res = await self.session.execute(
                 select(Company).where(
-                    Company.organization_id == self.organization_id,
-                    Company.external_id == ext_id
+                    or_(
+                        and_(Company.organization_id == self.organization_id, Company.external_id == ext_id),
+                        and_(Company.organization_id.is_(None), Company.external_id == ext_id)
+                    )
                 )
             )
             company = res.scalar_one_or_none()
             if company:
+                company.organization_id = self.organization_id
                 company.name = name
             else:
                 company = Company(
@@ -312,8 +342,10 @@ class SyncRepository:
 
             res = await self.session.execute(
                 select(Lead).where(
-                    Lead.organization_id == self.organization_id,
-                    Lead.external_id == ext_id
+                    or_(
+                        and_(Lead.organization_id == self.organization_id, Lead.external_id == ext_id),
+                        and_(Lead.organization_id.is_(None), Lead.external_id == ext_id)
+                    )
                 )
             )
             lead = res.scalar_one_or_none()
@@ -321,6 +353,7 @@ class SyncRepository:
             old_status_id = lead.status_id if lead else None
 
             if lead:
+                lead.organization_id = self.organization_id
                 lead.name = name
                 lead.price = price
                 lead.pipeline_id = pipeline_id
@@ -387,8 +420,10 @@ class SyncRepository:
             if lead_ext_id:
                 l_res = await self.session.execute(
                     select(Lead.id).where(
-                        Lead.organization_id == self.organization_id,
-                        Lead.external_id == lead_ext_id
+                        or_(
+                            and_(Lead.organization_id == self.organization_id, Lead.external_id == lead_ext_id),
+                            and_(Lead.organization_id.is_(None), Lead.external_id == lead_ext_id)
+                        )
                     )
                 )
                 lead_id = l_res.scalar_one_or_none()
@@ -398,8 +433,10 @@ class SyncRepository:
             if resp_ext_user_id:
                 u_res = await self.session.execute(
                     select(User.id).where(
-                        User.organization_id == self.organization_id,
-                        User.external_id == resp_ext_user_id
+                        or_(
+                            and_(User.organization_id == self.organization_id, User.external_id == resp_ext_user_id),
+                            and_(User.organization_id.is_(None), User.external_id == resp_ext_user_id)
+                        )
                     )
                 )
                 resp_user_id = u_res.scalar_one_or_none()
@@ -420,12 +457,15 @@ class SyncRepository:
 
             res = await self.session.execute(
                 select(Task).where(
-                    Task.organization_id == self.organization_id,
-                    Task.external_id == ext_id
+                    or_(
+                        and_(Task.organization_id == self.organization_id, Task.external_id == ext_id),
+                        and_(Task.organization_id.is_(None), Task.external_id == ext_id)
+                    )
                 )
             )
             task = res.scalar_one_or_none()
             if task:
+                task.organization_id = self.organization_id
                 task.text = text
                 task.is_completed = is_completed
                 task.lead_id = lead_id
@@ -460,20 +500,30 @@ class SyncRepository:
             if lead_ext_id:
                 l_res = await self.session.execute(
                     select(Lead.id).where(
-                        Lead.organization_id == self.organization_id,
-                        Lead.external_id == lead_ext_id
+                        or_(
+                            and_(Lead.organization_id == self.organization_id, Lead.external_id == lead_ext_id),
+                            and_(Lead.organization_id.is_(None), Lead.external_id == lead_ext_id)
+                        )
                     )
                 )
                 lead_id = l_res.scalar_one_or_none()
 
             res = await self.session.execute(
                 select(Event).where(
-                    Event.organization_id == self.organization_id,
-                    Event.external_id == ext_id
+                    or_(
+                        and_(Event.organization_id == self.organization_id, Event.external_id == ext_id),
+                        and_(Event.organization_id.is_(None), Event.external_id == ext_id)
+                    )
                 )
             )
             event = res.scalar_one_or_none()
-            if not event:
+            if event:
+                event.organization_id = self.organization_id
+                event.type = ev_type
+                event.lead_id = lead_id
+                event.value_before = ev.get("value_before")
+                event.value_after = ev.get("value_after")
+            else:
                 event = Event(
                     organization_id=self.organization_id,
                     external_id=ext_id,
@@ -483,7 +533,7 @@ class SyncRepository:
                     value_after=ev.get("value_after")
                 )
                 self.session.add(event)
-                count += 1
+            count += 1
         await self.session.commit()
         return count
 
@@ -497,12 +547,15 @@ class SyncRepository:
 
             res = await self.session.execute(
                 select(CustomField).where(
-                    CustomField.organization_id == self.organization_id,
-                    CustomField.external_id == ext_id
+                    or_(
+                        and_(CustomField.organization_id == self.organization_id, CustomField.external_id == ext_id),
+                        and_(CustomField.organization_id.is_(None), CustomField.external_id == ext_id)
+                    )
                 )
             )
             field = res.scalar_one_or_none()
             if field:
+                field.organization_id = self.organization_id
                 field.name = name
                 field.code = code
                 field.field_type = f_type
@@ -528,12 +581,15 @@ class SyncRepository:
 
             res = await self.session.execute(
                 select(Tag).where(
-                    Tag.organization_id == self.organization_id,
-                    Tag.external_id == ext_id
+                    or_(
+                        and_(Tag.organization_id == self.organization_id, Tag.external_id == ext_id),
+                        and_(Tag.organization_id.is_(None), Tag.external_id == ext_id)
+                    )
                 )
             )
             tag = res.scalar_one_or_none()
             if tag:
+                tag.organization_id = self.organization_id
                 tag.name = name
                 tag.color = color
             else:

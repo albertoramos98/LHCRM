@@ -22,7 +22,8 @@ class KommoSyncService:
 
     async def execute_sync(self, trigger_type: str = "automatic") -> dict:
         log = await self.repository.create_sync_log(trigger_type=trigger_type)
-        logger.info(f"Starting CRM synchronization for Org {self.organization_id} (Log ID #{log.id}, trigger: {trigger_type})...")
+        log_id = log.id
+        logger.info(f"Starting CRM synchronization for Org {self.organization_id} (Log ID #{log_id}, trigger: {trigger_type})...")
 
         items_count = 0
         try:
@@ -61,31 +62,35 @@ class KommoSyncService:
 
             # Finish sync log & invalidate tenant cache
             await self.repository.finish_sync_log(
-                log_id=log.id,
+                log_id=log_id,
                 status="success",
                 items_synced=items_count
             )
             memory_cache.clear()
-            logger.info(f"Sync #{log.id} for Org {self.organization_id} completed successfully. Synced {items_count} items.")
+            logger.info(f"Sync #{log_id} for Org {self.organization_id} completed successfully. Synced {items_count} items.")
 
             return {
                 "status": "success",
-                "log_id": log.id,
+                "log_id": log_id,
                 "items_synced": items_count,
                 "message": f"Sincronização concluída com sucesso ({items_count} registros)."
             }
 
         except Exception as e:
             logger.error(f"Error during CRM sync execution for Org {self.organization_id}: {e}", exc_info=True)
-            await self.repository.finish_sync_log(
-                log_id=log.id,
-                status="failed",
-                items_synced=items_count,
-                error_message=str(e)
-            )
+            try:
+                await self.session.rollback()
+                await self.repository.finish_sync_log(
+                    log_id=log_id,
+                    status="failed",
+                    items_synced=items_count,
+                    error_message=str(e)
+                )
+            except Exception as rollback_err:
+                logger.warning(f"Could not update sync log after error: {rollback_err}")
             return {
                 "status": "failed",
-                "log_id": log.id,
+                "log_id": log_id,
                 "items_synced": items_count,
                 "error": str(e),
                 "message": "Erro ao executar a sincronização com o Kommo CRM."
