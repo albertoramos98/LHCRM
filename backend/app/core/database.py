@@ -59,6 +59,10 @@ async def _safe_postgres_migration(conn):
                 IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users') THEN
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE SET NULL;
                     ALTER TABLE users ADD COLUMN IF NOT EXISTS external_id INTEGER;
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+                    ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'Consultora';
                 END IF;
             END $$;
         """))
@@ -75,24 +79,105 @@ async def _safe_postgres_migration(conn):
             );
         """))
 
-        # 4. Patch domain tables if they exist without organization_id
-        for table_name in [
-            "companies", "contacts", "pipelines", "lead_status", "tags",
-            "custom_fields", "leads", "tasks", "events", "lead_history",
-            "sync_logs", "crm_integrations", "integration_logs"
-        ]:
-            await conn.execute(text(f"""
-                DO $$
-                BEGIN
-                    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '{table_name}') THEN
-                        BEGIN
-                            ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE;
-                        EXCEPTION WHEN OTHERS THEN
-                            NULL;
-                        END;
-                    END IF;
-                END $$;
-            """))
+        # 4. Patch domain tables if they exist
+        await conn.execute(text("""
+            DO $$
+            BEGIN
+                -- COMPANIES
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'companies') THEN
+                    ALTER TABLE companies ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE;
+                    ALTER TABLE companies ADD COLUMN IF NOT EXISTS external_id INTEGER;
+                    ALTER TABLE companies ADD COLUMN IF NOT EXISTS custom_fields_values JSONB;
+                END IF;
+
+                -- CONTACTS
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'contacts') THEN
+                    ALTER TABLE contacts ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE;
+                    ALTER TABLE contacts ADD COLUMN IF NOT EXISTS external_id INTEGER;
+                    ALTER TABLE contacts ADD COLUMN IF NOT EXISTS custom_fields_values JSONB;
+                END IF;
+
+                -- PIPELINES
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'pipelines') THEN
+                    ALTER TABLE pipelines ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE;
+                    ALTER TABLE pipelines ADD COLUMN IF NOT EXISTS external_id INTEGER;
+                    ALTER TABLE pipelines ADD COLUMN IF NOT EXISTS is_main BOOLEAN DEFAULT false;
+                    ALTER TABLE pipelines ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+                END IF;
+
+                -- LEAD_STATUS
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'lead_status') THEN
+                    ALTER TABLE lead_status ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE;
+                    ALTER TABLE lead_status ADD COLUMN IF NOT EXISTS external_id INTEGER;
+                    ALTER TABLE lead_status ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+                    ALTER TABLE lead_status ADD COLUMN IF NOT EXISTS color VARCHAR(50);
+                    ALTER TABLE lead_status ADD COLUMN IF NOT EXISTS type INTEGER DEFAULT 1;
+                END IF;
+
+                -- TAGS
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'tags') THEN
+                    ALTER TABLE tags ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE;
+                    ALTER TABLE tags ADD COLUMN IF NOT EXISTS external_id INTEGER;
+                    ALTER TABLE tags ADD COLUMN IF NOT EXISTS color VARCHAR(50);
+                END IF;
+
+                -- CUSTOM_FIELDS
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'custom_fields') THEN
+                    ALTER TABLE custom_fields ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE;
+                    ALTER TABLE custom_fields ADD COLUMN IF NOT EXISTS external_id INTEGER;
+                    ALTER TABLE custom_fields ADD COLUMN IF NOT EXISTS code VARCHAR(100);
+                END IF;
+
+                -- LEADS
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'leads') THEN
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE;
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS external_id INTEGER;
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS closed_at TIMESTAMP WITH TIME ZONE;
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS unidade VARCHAR(100);
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS procedimento VARCHAR(100);
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS origem VARCHAR(100);
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS suborigem VARCHAR(100);
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS loss_reason VARCHAR(255);
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS first_response_time_minutes FLOAT;
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS sales_cycle_days FLOAT;
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS custom_fields_values JSONB;
+                END IF;
+
+                -- TASKS
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'tasks') THEN
+                    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE;
+                    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS external_id INTEGER;
+                    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS resolution_time_hours FLOAT;
+                END IF;
+
+                -- EVENTS
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'events') THEN
+                    ALTER TABLE events ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE;
+                    ALTER TABLE events ADD COLUMN IF NOT EXISTS external_id VARCHAR(100);
+                END IF;
+
+                -- LEAD_HISTORY
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'lead_history') THEN
+                    ALTER TABLE lead_history ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE;
+                END IF;
+
+                -- SYNC_LOGS
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'sync_logs') THEN
+                    ALTER TABLE sync_logs ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE;
+                END IF;
+
+                -- CRM_INTEGRATIONS
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'crm_integrations') THEN
+                    ALTER TABLE crm_integrations ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE;
+                END IF;
+
+                -- INTEGRATION_LOGS
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'integration_logs') THEN
+                    ALTER TABLE integration_logs ADD COLUMN IF NOT EXISTS organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE;
+                END IF;
+            END $$;
+        """))
     except Exception as exc:
         logger.warning(f"Self-healing Postgres schema update notice: {exc}")
 
