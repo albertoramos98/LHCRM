@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, case
-from app.models.domain import Lead, LeadStatus, Pipeline, User, Task, Event, LeadHistory
+from app.models.domain import Lead, LeadStatus, Pipeline, User, Task, Event, LeadHistory, MacroMetric
 
 class DashboardRepository:
     def __init__(self, session: AsyncSession, organization_id: int):
@@ -21,6 +21,7 @@ class DashboardRepository:
         procedimento: Optional[str] = None,
         origem: Optional[str] = None,
         suborigem: Optional[str] = None,
+        source_type: Optional[str] = None,
         user_role: str = "Admin",
         current_user_id: Optional[int] = None,
     ):
@@ -69,6 +70,8 @@ class DashboardRepository:
             conditions.append(Lead.origem == origem)
         if suborigem:
             conditions.append(Lead.suborigem == suborigem)
+        if source_type and source_type.lower() not in ("all", "todos", ""):
+            conditions.append(Lead.source_type == source_type.lower())
 
         # RBAC restriction for Consultora
         if user_role == "Consultora" and current_user_id:
@@ -449,3 +452,101 @@ class DashboardRepository:
             "by_origin": sorted(vendas_por_origem, key=lambda x: x["receita"], reverse=True),
             "by_suborigin": sorted(vendas_por_suborigem, key=lambda x: x["receita"], reverse=True)
         }
+
+    async def get_goals_and_cac_metrics(self, period_month: str, consultora_id: Optional[int] = None) -> Dict[str, Any]:
+        # Query saved macro metric/target for this month
+        q = select(MacroMetric).where(
+            MacroMetric.organization_id == self.organization_id,
+            MacroMetric.period_month == period_month
+        )
+        if consultora_id:
+            q = q.where(MacroMetric.consultora_id == consultora_id)
+        
+        res = await self.session.execute(q)
+        goals = list(res.scalars().all())
+
+        total_rev_target = sum(g.revenue_target for g in goals)
+        total_leads_target = sum(g.leads_target for g in goals)
+        total_sales_target = sum(g.sales_target for g in goals)
+        total_mkt_invest = sum(g.marketing_investment for g in goals)
+        total_fixed_costs = sum(g.fixed_costs for g in goals)
+
+        # Calculate actuals for that month (e.g. 2026-09)
+        try:
+            year, month = map(int, period_month.split("-"))
+            dt_start = datetime(year, month, 1, tzinfo=timezone.utc)
+            if month == 12:
+                dt_end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+            else:
+                dt_end = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+        except Exception:
+            dt_start = datetime.now(timezone.utc) - timedelta(days=30)
+            dt_end = datetime.now(timezone.utc)
+
+        actual_leads_query = select(Lead).where(
+            Lead.organization_id == self.organization_id,
+            Lead.created_at >= dt_start,
+            Lead.created_at < dt_end
+        )
+        if consultora_id:
+            actual_leads_query = actual_leads_query.where(Lead.responsible_user_id == consultora_id)
+        
+        actual_leads_res = await self.session.execute(actual_leads_query)
+        actual_leads_list = list(actual_leads_res.scalars().all())
+
+        actual_leads_count = len(actual_leads_list)
+        won_leads = [l for l in actual_leads_list if (l.closed_at is not None or l.sales_cycle_days is not None) and not l.loss_reason]
+        actual_sales_count = len(won_leads)
+        actual_revenue = sum(l.price for l in won_leads)
+
+        rev_pct = round((actual_revenue / total_rev_target * 100.0) if total_rev_target > 0 else 0.0, 1)
+        leads_pct = round((actual_leads_count / total_leads_target * 100.0) if total_leads_target > 0 else 0.0, 1)
+        sales_pct = round((actual_sales_count / total_sales_target * 100.0) if total_sales_target > 0 else 0.0, 1)
+
+        cac = round((total_mkt_invest / actual_sales_count) if actual_sales_count > 0 else 0.0, 2)
+        roi = round((actual_revenue / total_mkt_invest) if total_mkt_invest > 0 else 0.0, 2)
+
+        # Get user names for goals
+        user_ids = [g.consultora_id for g in goals if g.consultora_id]
+        user_names = {}
+        if user_ids:
+            u_res = await self.session.execute(select(User.id, User.name).where(User.id.in_(user_ids)))
+            user_names = {u[0]: u[1] for u in u_res.all()}
+
+        goals_data = []
+        for g in goals:
+            goals_data.append({
+                "id": g.id,
+                "organization_id": g.organization_id,
+                "period_month": g.period_month,
+                "consultora_id": g.consultora_id,
+                "consultora_name": user_names.get(g.consultora_id) if g.consultora_id else "Global Empresa",
+                "revenue_target": g.revenue_target,
+                "leads_target": g.leads_target,
+                "sales_target": g.sales_target,
+                "marketing_investment": g.marketing_investment,
+                "fixed_costs": g.fixed_costs,
+                "notes": g.notes,
+                "created_at": g.created_at,
+                "updated_at": g.updated_at
+            })
+
+        return {
+            "period_month": period_month,
+            "revenue_target": round(total_rev_target, 2),
+            "actual_revenue": round(actual_revenue, 2),
+            "revenue_achievement_pct": rev_pct,
+            "leads_target": total_leads_target,
+            "actual_leads": actual_leads_count,
+            "leads_achievement_pct": leads_pct,
+            "sales_target": total_sales_target,
+            "actual_sales": actual_sales_count,
+            "sales_achievement_pct": sales_pct,
+            "marketing_investment": round(total_mkt_invest, 2),
+            "fixed_costs": round(total_fixed_costs, 2),
+            "cac": cac,
+            "roi": roi,
+            "roas": roi,
+            "goals": goals_data
+        }
+

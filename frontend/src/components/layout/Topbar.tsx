@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Bell, Sun, Moon, ShieldCheck } from 'lucide-react';
+import { Search, Bell, Sun, Moon, ShieldCheck, Plus, FileSpreadsheet } from 'lucide-react';
 import { SyncButton } from '../SyncButton';
 import { ExportActions } from '../ExportActions';
 
@@ -9,6 +9,8 @@ interface TopbarProps {
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
   onSyncComplete?: () => void;
+  onOpenNewLead?: () => void;
+  onOpenCsvImport?: () => void;
   activeTabLabel: string;
 }
 
@@ -18,6 +20,8 @@ export const Topbar: React.FC<TopbarProps> = ({
   theme,
   onToggleTheme,
   onSyncComplete,
+  onOpenNewLead,
+  onOpenCsvImport,
   activeTabLabel,
 }) => {
   return (
@@ -55,7 +59,29 @@ export const Topbar: React.FC<TopbarProps> = ({
         </button>
 
         {/* Right Action Icons & Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          {onOpenNewLead && (
+            <button
+              onClick={onOpenNewLead}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-cyan-500/20 transition-all"
+              title="Cadastrar Lead ou Venda Manual"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Novo Lead</span>
+            </button>
+          )}
+
+          {onOpenCsvImport && (
+            <button
+              onClick={onOpenCsvImport}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-semibold text-xs transition-all"
+              title="Importar Planilha CSV em Lote"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Importar CSV</span>
+            </button>
+          )}
+
           <SyncButton onSyncComplete={onSyncComplete} />
 
           <ExportActions />

@@ -39,6 +39,7 @@ class Organization(Base):
     custom_fields: Mapped[List["CustomField"]] = relationship("CustomField", back_populates="organization", cascade="all, delete-orphan")
     tags: Mapped[List["Tag"]] = relationship("Tag", back_populates="organization", cascade="all, delete-orphan")
     sync_logs: Mapped[List["SyncLog"]] = relationship("SyncLog", back_populates="organization", cascade="all, delete-orphan")
+    macro_metrics: Mapped[List["MacroMetric"]] = relationship("MacroMetric", back_populates="organization", cascade="all, delete-orphan")
 
 class OrganizationMember(Base):
     __tablename__ = "organization_members"
@@ -173,6 +174,7 @@ class Lead(Base):
     company_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("companies.id", ondelete="SET NULL"), nullable=True)
 
     # Key attributes for executive breakdown
+    source_type: Mapped[str] = mapped_column(String(50), default="kommo", index=True) # kommo, manual, csv
     unidade: Mapped[Optional[str]] = mapped_column(String(100), index=True, nullable=True)
     procedimento: Mapped[Optional[str]] = mapped_column(String(100), index=True, nullable=True)
     origem: Mapped[Optional[str]] = mapped_column(String(100), index=True, nullable=True)
@@ -314,3 +316,28 @@ class SyncLog(Base):
     __table_args__ = (
         Index("ix_sync_logs_org_started", "organization_id", "started_at"),
     )
+
+class MacroMetric(Base):
+    __tablename__ = "macro_metrics"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    period_month: Mapped[str] = mapped_column(String(7), index=True) # YYYY-MM
+    consultora_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    revenue_target: Mapped[float] = mapped_column(Float, default=0.0)
+    leads_target: Mapped[int] = mapped_column(Integer, default=0)
+    sales_target: Mapped[int] = mapped_column(Integer, default=0)
+    marketing_investment: Mapped[float] = mapped_column(Float, default=0.0)
+    fixed_costs: Mapped[float] = mapped_column(Float, default=0.0)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    organization: Mapped["Organization"] = relationship("Organization", back_populates="macro_metrics")
+    consultora: Mapped[Optional["User"]] = relationship("User")
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "period_month", "consultora_id", name="uq_macro_metric_org_month_user"),
+        Index("ix_macro_metrics_org_month", "organization_id", "period_month"),
+    )
+

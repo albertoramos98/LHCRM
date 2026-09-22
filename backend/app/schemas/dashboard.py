@@ -12,3 +12,4 @@ class FilterParams(BaseModel):
     procedimento: Optional[str] = None
     origem: Optional[str] = None
     suborigem: Optional[str] = None
+    source_type: Optional[str] = None # None / 'all', 'kommo', 'manual', 'csv'

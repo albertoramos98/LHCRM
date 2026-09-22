@@ -10,6 +10,7 @@ import {
   CheckSquare,
   Share2,
   Link2,
+  Target,
   ChevronLeft,
   ChevronRight,
   Building2,
@@ -40,6 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const menuItems = [
     { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
+    { id: 'goals', label: 'Metas & CAC', icon: Target },
     { id: 'performance', label: 'Atendimento', icon: Clock },
     { id: 'tickets', label: 'Ticket Médio', icon: Award },
     { id: 'revenue', label: 'Receita', icon: DollarSign },

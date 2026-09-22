@@ -31,6 +31,7 @@ async def get_overview(
     procedimento: Optional[str] = None,
     origem: Optional[str] = None,
     suborigem: Optional[str] = None,
+    source_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)
 ):
@@ -39,6 +40,7 @@ async def get_overview(
         period=period, start_date=start_date, end_date=end_date,
         consultora_id=consultora_id, pipeline_id=pipeline_id, status_id=status_id,
         unidade=unidade, procedimento=procedimento, origem=origem, suborigem=suborigem,
+        source_type=source_type,
         user_role=tenant.role, current_user_id=tenant.user_id
     )
 
@@ -54,6 +56,7 @@ async def get_funnel(
     procedimento: Optional[str] = None,
     origem: Optional[str] = None,
     suborigem: Optional[str] = None,
+    source_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)
 ):
@@ -62,6 +65,7 @@ async def get_funnel(
         period=period, start_date=start_date, end_date=end_date,
         consultora_id=consultora_id, pipeline_id=pipeline_id, status_id=status_id,
         unidade=unidade, procedimento=procedimento, origem=origem, suborigem=suborigem,
+        source_type=source_type,
         user_role=tenant.role, current_user_id=tenant.user_id
     )
 
@@ -77,6 +81,7 @@ async def get_revenue(
     procedimento: Optional[str] = None,
     origem: Optional[str] = None,
     suborigem: Optional[str] = None,
+    source_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)
 ):
@@ -85,6 +90,7 @@ async def get_revenue(
         period=period, start_date=start_date, end_date=end_date,
         consultora_id=consultora_id, pipeline_id=pipeline_id, status_id=status_id,
         unidade=unidade, procedimento=procedimento, origem=origem, suborigem=suborigem,
+        source_type=source_type,
         user_role=tenant.role, current_user_id=tenant.user_id
     )
 
@@ -109,6 +115,7 @@ async def get_ranking(
     pipeline_id: Optional[int] = None,
     unidade: Optional[str] = None,
     procedimento: Optional[str] = None,
+    source_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)
 ):
@@ -116,6 +123,7 @@ async def get_ranking(
     return await service.get_ranking(
         period=period, start_date=start_date, end_date=end_date,
         pipeline_id=pipeline_id, unidade=unidade, procedimento=procedimento,
+        source_type=source_type,
         user_role=tenant.role, current_user_id=tenant.user_id
     )
 
@@ -128,6 +136,7 @@ async def get_losses(
     pipeline_id: Optional[int] = None,
     unidade: Optional[str] = None,
     procedimento: Optional[str] = None,
+    source_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)
 ):
@@ -136,6 +145,7 @@ async def get_losses(
         period=period, start_date=start_date, end_date=end_date,
         consultora_id=consultora_id, pipeline_id=pipeline_id,
         unidade=unidade, procedimento=procedimento,
+        source_type=source_type,
         user_role=tenant.role, current_user_id=tenant.user_id
     )
 
@@ -148,6 +158,7 @@ async def get_origins(
     pipeline_id: Optional[int] = None,
     unidade: Optional[str] = None,
     procedimento: Optional[str] = None,
+    source_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)
 ):
@@ -156,6 +167,7 @@ async def get_origins(
         period=period, start_date=start_date, end_date=end_date,
         consultora_id=consultora_id, pipeline_id=pipeline_id,
         unidade=unidade, procedimento=procedimento,
+        source_type=source_type,
         user_role=tenant.role, current_user_id=tenant.user_id
     )
 
@@ -168,6 +180,7 @@ async def get_tickets(
     pipeline_id: Optional[int] = None,
     unidade: Optional[str] = None,
     procedimento: Optional[str] = None,
+    source_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)
 ):
@@ -176,6 +189,7 @@ async def get_tickets(
         period=period, start_date=start_date, end_date=end_date,
         consultora_id=consultora_id, pipeline_id=pipeline_id,
         unidade=unidade, procedimento=procedimento,
+        source_type=source_type,
         user_role=tenant.role, current_user_id=tenant.user_id
     )
 
@@ -186,6 +200,7 @@ async def get_performance(
     end_date: Optional[str] = None,
     consultora_id: Optional[int] = None,
     pipeline_id: Optional[int] = None,
+    source_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)
 ):
@@ -193,6 +208,7 @@ async def get_performance(
     return await service.get_performance(
         period=period, start_date=start_date, end_date=end_date,
         consultora_id=consultora_id, pipeline_id=pipeline_id,
+        source_type=source_type,
         user_role=tenant.role, current_user_id=tenant.user_id
     )
 
@@ -208,6 +224,7 @@ async def get_all_metrics(
     procedimento: Optional[str] = None,
     origem: Optional[str] = None,
     suborigem: Optional[str] = None,
+    source_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context)
 ):
@@ -216,6 +233,7 @@ async def get_all_metrics(
         period=period, start_date=start_date, end_date=end_date,
         consultora_id=consultora_id, pipeline_id=pipeline_id, status_id=status_id,
         unidade=unidade, procedimento=procedimento, origem=origem, suborigem=suborigem,
+        source_type=source_type,
         user_role=tenant.role, current_user_id=tenant.user_id
     )
 

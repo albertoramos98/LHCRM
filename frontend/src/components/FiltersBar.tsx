@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Filter, Calendar, User, GitBranch, Shield, Building, Stethoscope, Share2, CornerDownRight, X } from 'lucide-react';
+import { Filter, Calendar, User, GitBranch, Shield, Building, Stethoscope, Share2, CornerDownRight, Database, X } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 
 export interface FilterState {
@@ -13,6 +13,7 @@ export interface FilterState {
   procedimento: string;
   origem: string;
   suborigem: string;
+  sourceType?: string;
 }
 
 interface FiltersBarProps {
@@ -62,6 +63,7 @@ export const FiltersBar: React.FC<FiltersBarProps> = ({ filters, onChange }) => 
       procedimento: '',
       origem: '',
       suborigem: '',
+      sourceType: '',
     });
   };
 
@@ -240,6 +242,23 @@ export const FiltersBar: React.FC<FiltersBarProps> = ({ filters, onChange }) => 
                 {so}
               </option>
             ))}
+          </select>
+        </div>
+
+        {/* Fonte de Dados (Kommo / Manual / CSV / Todos) */}
+        <div>
+          <label className="block text-[11px] font-semibold text-slate-400 mb-1 flex items-center gap-1">
+            <Database className="w-3 h-3 text-amber-400" /> Fonte de Dados
+          </label>
+          <select
+            value={filters.sourceType || ''}
+            onChange={(e) => handleSelectChange('sourceType', e.target.value)}
+            className="w-full bg-slate-900/90 border border-amber-500/30 rounded-xl px-2.5 py-1.5 text-xs text-amber-300 font-semibold focus:outline-none focus:border-amber-400"
+          >
+            <option value="">🌐 Todas as Fontes</option>
+            <option value="kommo">🔄 Kommo CRM</option>
+            <option value="manual">✍️ Manual (LHCRM)</option>
+            <option value="csv">📊 Planilha (CSV)</option>
           </select>
         </div>
       </div>

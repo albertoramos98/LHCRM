@@ -14,6 +14,8 @@ from app.core.dependencies import get_tenant_context, TenantContext
 from app.routes.auth import router as auth_router
 from app.routes.sync import router as sync_router
 from app.routes.dashboard import router as dashboard_router
+from app.routes.leads import router as leads_router
+from app.routes.goals import router as goals_router
 from app.integrations.kommo.routes import router as kommo_integration_router
 from app.jobs.scheduler import start_scheduler, shutdown_scheduler
 from app.services.sync_service import KommoSyncService
@@ -124,6 +126,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(auth_router)
 app.include_router(sync_router)
 app.include_router(dashboard_router)
+app.include_router(leads_router)
+app.include_router(goals_router)
 app.include_router(kommo_integration_router)
 
 @app.get("/public-dashboard", tags=["Public Dashboard"])

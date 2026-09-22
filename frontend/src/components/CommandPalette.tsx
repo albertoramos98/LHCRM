@@ -11,6 +11,9 @@ import {
   CheckSquare,
   Share2,
   Link2,
+  Target,
+  Plus,
+  FileSpreadsheet,
   RefreshCw,
   Download,
   X,
@@ -23,6 +26,8 @@ interface CommandPaletteProps {
   onSelectTab: (tabId: string) => void;
   onTriggerSync?: () => void;
   onToggleTheme?: () => void;
+  onOpenNewLead?: () => void;
+  onOpenCsvImport?: () => void;
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -31,6 +36,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onSelectTab,
   onTriggerSync,
   onToggleTheme,
+  onOpenNewLead,
+  onOpenCsvImport,
 }) => {
   const [query, setQuery] = useState('');
 
@@ -52,7 +59,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   if (!isOpen) return null;
 
   const commands = [
+    { id: 'new_lead', category: 'Ações Rápidas', label: '+ Cadastrar Novo Lead / Venda Manual', icon: Plus, action: () => { onClose(); onOpenNewLead && onOpenNewLead(); } },
+    { id: 'import_csv', category: 'Ações Rápidas', label: 'Importar Planilha em Lote (CSV)', icon: FileSpreadsheet, action: () => { onClose(); onOpenCsvImport && onOpenCsvImport(); } },
     { id: 'overview', category: 'Navegação', label: 'Visão Geral Executiva', icon: LayoutDashboard, action: () => onSelectTab('overview') },
+    { id: 'goals', category: 'Navegação', label: 'Gestão de Metas & CAC / ROI', icon: Target, action: () => onSelectTab('goals') },
     { id: 'performance', category: 'Navegação', label: 'Atendimento & Tempos de Resposta', icon: Clock, action: () => onSelectTab('performance') },
     { id: 'tickets', category: 'Navegação', label: 'Ticket Médio por Procedimento & Unidade', icon: Award, action: () => onSelectTab('tickets') },
     { id: 'revenue', category: 'Navegação', label: 'Receita Total & Faturamento', icon: DollarSign, action: () => onSelectTab('revenue') },

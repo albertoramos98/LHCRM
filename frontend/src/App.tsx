@@ -3,6 +3,8 @@ import { Sidebar } from './components/layout/Sidebar';
 import { Topbar } from './components/layout/Topbar';
 import { CommandPalette } from './components/CommandPalette';
 import { FiltersBar, FilterState } from './components/FiltersBar';
+import { NewLeadModal } from './components/NewLeadModal';
+import { CsvImportModal } from './components/CsvImportModal';
 
 import { OverviewModule } from './modules/OverviewModule';
 import { ServiceModule } from './modules/ServiceModule';
@@ -13,6 +15,7 @@ import { LossModule } from './modules/LossModule';
 import { RankingModule } from './modules/RankingModule';
 import { FollowUpModule } from './modules/FollowUpModule';
 import { OriginsModule } from './modules/OriginsModule';
+import { GoalsModule } from './modules/GoalsModule';
 import { IntegrationsPage } from './pages/Integrations';
 import { apiFetch, triggerLogout } from './utils/api';
 import { LoginPage } from './pages/Login';
@@ -23,6 +26,10 @@ export function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [kommoConnected, setKommoConnected] = useState(true);
+
+  // Modals
+  const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
+  const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
 
   const [user, setUser] = useState<{ id: number; name: string; email: string; role: string } | null>(() => {
     const storedUser = localStorage.getItem('lhcrm_user');
@@ -75,6 +82,7 @@ export function App() {
     procedimento: '',
     origem: '',
     suborigem: '',
+    sourceType: '',
   });
 
   const [data, setData] = useState<any>(null);
@@ -105,7 +113,7 @@ export function App() {
   };
 
   const fetchData = async () => {
-    if (activeTab === 'integrations') return;
+    if (activeTab === 'integrations' || activeTab === 'goals') return;
     setLoading(true);
     try {
       const queryParams = new URLSearchParams();
@@ -119,6 +127,7 @@ export function App() {
       if (filters.procedimento) queryParams.append('procedimento', filters.procedimento);
       if (filters.origem) queryParams.append('origem', filters.origem);
       if (filters.suborigem) queryParams.append('suborigem', filters.suborigem);
+      if (filters.sourceType) queryParams.append('source_type', filters.sourceType);
 
       const res = await apiFetch(`/api/dashboard/${activeTab}?${queryParams.toString()}`);
       if (res.ok) {
@@ -158,6 +167,7 @@ export function App() {
 
   const tabLabels: Record<string, string> = {
     overview: 'Visão Geral Executiva',
+    goals: 'Gestão de Metas & CAC',
     performance: 'Atendimento & Eficiência',
     tickets: 'Análise de Ticket Médio',
     revenue: 'Receita & Faturamento',
@@ -199,6 +209,8 @@ export function App() {
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           theme={theme}
           onToggleTheme={toggleTheme}
+          onOpenNewLead={() => setIsNewLeadOpen(true)}
+          onOpenCsvImport={() => setIsCsvImportOpen(true)}
           onSyncComplete={() => {
             fetchData();
             checkIntegrationStatus();
@@ -209,10 +221,13 @@ export function App() {
         {/* Page Body */}
         <main className="p-4 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
           {/* Executive FilterBar (for analytics tabs) */}
-          {activeTab !== 'integrations' && <FiltersBar filters={filters} onChange={setFilters} />}
+          {activeTab !== 'integrations' && activeTab !== 'goals' && (
+            <FiltersBar filters={filters} onChange={setFilters} />
+          )}
 
           {/* Dynamic Module Content */}
           {activeTab === 'overview' && <OverviewModule data={data} loading={loading} />}
+          {activeTab === 'goals' && <GoalsModule data={data} loading={loading} />}
           {activeTab === 'performance' && <ServiceModule data={data} loading={loading} />}
           {activeTab === 'tickets' && <TicketModule data={data} loading={loading} />}
           {activeTab === 'revenue' && <RevenueModule data={data} loading={loading} />}
@@ -232,6 +247,23 @@ export function App() {
         </main>
       </div>
 
+      {/* Modais Globais */}
+      <NewLeadModal
+        isOpen={isNewLeadOpen}
+        onClose={() => setIsNewLeadOpen(false)}
+        onSuccess={() => {
+          fetchData();
+        }}
+      />
+
+      <CsvImportModal
+        isOpen={isCsvImportOpen}
+        onClose={() => setIsCsvImportOpen(false)}
+        onSuccess={() => {
+          fetchData();
+        }}
+      />
+
       {/* Global Command Palette (Ctrl+K) */}
       <CommandPalette
         isOpen={isCommandPaletteOpen}
@@ -239,6 +271,8 @@ export function App() {
         onSelectTab={setActiveTab}
         onTriggerSync={fetchData}
         onToggleTheme={toggleTheme}
+        onOpenNewLead={() => setIsNewLeadOpen(true)}
+        onOpenCsvImport={() => setIsCsvImportOpen(true)}
       />
     </div>
   );
