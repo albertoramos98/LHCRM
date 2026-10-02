@@ -136,3 +136,21 @@ async def test_invalid_refresh_token(client: AsyncClient):
         "refresh_token": "invalid.jwt.token"
     })
     assert res.status_code == 401
+
+@pytest.mark.asyncio
+async def test_register_new_organization_and_owner(client: AsyncClient):
+    res = await client.post("/api/auth/register", json={
+        "company_name": "Clínica Nova Vida",
+        "admin_name": "Dra. Juliana",
+        "email": "juliana@novavida.com",
+        "password": "SenhaSegura123!"
+    })
+    assert res.status_code == 201
+    data = res.json()
+    assert "access_token" in data
+    assert "refresh_token" in data
+    assert data["name"] == "Dra. Juliana"
+    assert data["role"] == "Owner"
+    assert data["organization"]["name"] == "Clínica Nova Vida"
+    assert "novavida" in data["organization"]["slug"] or "clinica" in data["organization"]["slug"]
+

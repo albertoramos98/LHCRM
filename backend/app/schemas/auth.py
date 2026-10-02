@@ -5,6 +5,13 @@ class LoginRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=255)
     password: str = Field(..., min_length=1, max_length=128)
 
+class RegisterOrganizationRequest(BaseModel):
+    company_name: str = Field(..., min_length=2, max_length=255, description="Nome da empresa ou clínica")
+    admin_name: str = Field(..., min_length=2, max_length=255, description="Nome do gestor ou administrador")
+    email: EmailStr = Field(..., description="E-mail profissional para acesso")
+    password: str = Field(..., min_length=6, max_length=128, description="Senha de acesso")
+    slug: Optional[str] = Field(None, max_length=100, description="Identificador único (slug)")
+
 class OrganizationInfo(BaseModel):
     id: int
     name: str
