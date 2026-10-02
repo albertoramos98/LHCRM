@@ -256,6 +256,18 @@ async def _safe_postgres_migration(conn):
                 EXCEPTION WHEN OTHERS THEN NULL;
                 END;
 
+                -- Ensure all analytical columns and source_type exist on leads table
+                BEGIN
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS source_type VARCHAR(50) DEFAULT 'kommo';
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS unidade VARCHAR(100);
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS procedimento VARCHAR(100);
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS origem VARCHAR(100);
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS suborigem VARCHAR(100);
+                    ALTER TABLE leads ADD COLUMN IF NOT EXISTS loss_reason VARCHAR(255);
+                    CREATE INDEX IF NOT EXISTS ix_leads_source_type ON leads (source_type);
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END;
+
                 BEGIN
                     DROP INDEX IF EXISTS ix_tasks_external_id;
                     CREATE INDEX IF NOT EXISTS ix_tasks_external_id ON tasks (external_id);

@@ -369,6 +369,21 @@ class LeadService:
         first_line = text.splitlines()[0] if text.splitlines() else ""
         delimiter = ";" if ";" in first_line and first_line.count(";") >= first_line.count(",") else ","
 
+        # Friendly detection if user uploaded a Goals / Indicators spreadsheet by mistake
+        first_line_lower = first_line.lower()
+        if "meta_faturamento" in first_line_lower or ("periodo" in first_line_lower and "marketing" in first_line_lower):
+            return CsvImportSummary(
+                total_rows=len(text.splitlines()) - 1,
+                imported_count=0,
+                failed_count=len(text.splitlines()) - 1,
+                errors=[
+                    CsvImportRowError(
+                        row_number=1,
+                        error="Este arquivo é uma planilha de Metas/Indicadores. Para leads e vendas, use planilhas com as colunas: Nome, Valor, Unidade, Procedimento, Origem, Consultora e Status."
+                    )
+                ]
+            )
+
         reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
         
         # Load pipelines, statuses and users for name matching
@@ -476,12 +491,18 @@ class LeadService:
                     updated_at=datetime.now(timezone.utc)
                 )
                 self.session.add(lead)
+                await self.session.flush()
                 imported_count += 1
             except Exception as ex:
+                await self.session.rollback()
                 errors.append(CsvImportRowError(row_number=idx, error=str(ex), raw_data=row))
                 failed_count += 1
 
-        await self.session.commit()
+        try:
+            await self.session.commit()
+        except Exception as ex:
+            await self.session.rollback()
+            errors.append(CsvImportRowError(row_number=0, error=f"Erro na confirmação final: {str(ex)}"))
 
         return CsvImportSummary(
             total_rows=total_rows,

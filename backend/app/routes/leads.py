@@ -99,7 +99,7 @@ async def delete_lead(
 async def import_csv_leads(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    tenant: TenantContext = Depends(require_role(["Owner", "Admin", "Gerente"]))
+    tenant: TenantContext = Depends(get_tenant_context)
 ):
     """
     Bulk import leads from a CSV spreadsheet file.
