@@ -69,7 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className={`fixed top-0 left-0 z-50 h-screen bg-[#080c14] border-r border-slate-800/80 flex flex-col justify-between transition-all duration-300 ${
+      className={`fixed top-0 left-0 z-30 h-screen bg-[#080c14] border-r border-slate-800/80 flex flex-col justify-between transition-all duration-300 ${
         collapsed ? 'w-20' : 'w-64'
       }`}
     >

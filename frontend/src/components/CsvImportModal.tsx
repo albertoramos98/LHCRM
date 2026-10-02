@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, UploadCloud, FileSpreadsheet, Download, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { X, UploadCloud, FileSpreadsheet, Download, AlertCircle, CheckCircle2, RefreshCw, Sparkles, FileText } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 
 interface CsvImportModalProps {
@@ -7,6 +7,30 @@ interface CsvImportModalProps {
   onClose: () => void;
   onSuccess: () => void;
 }
+
+const SAMPLE_CSV_ESTETICA = `Nome;Valor;Unidade;Procedimento;Origem;Suborigem;Consultora;Status;Motivo_Perda
+Juliana Alcantara;12500;Matriz Jardins;Harmonização Facial;Instagram;Stories;Mariana;Ganhos;
+Rodrigo Santoro;8200;Filial Alphaville;Implante Dentário;Google Ads;Search Campanha A;Fernanda;Ganhos;
+Beatriz Mendonca;4500;Matriz Jardins;Botox Full Face;Indicacao;Amigo/Parente;Mariana;Ganhos;
+Lucas Nogueira;18000;Filial Barra;Lifting Facial;Facebook Ads;Carrossel Feed;Camila;Ganhos;
+Priscila Rocha;3200;Filial Alphaville;Preenchimento Labial;Instagram;Reels;Fernanda;Em Atendimento;
+Gabriel Vasconcelos;9500;Matriz Jardins;Lentes de Resina;Google Ads;Campanha Dental;Mariana;Em Atendimento;
+Fernanda Lima;6400;Filial Barra;Bioestimulador de Colageno;Tiktok;Video Viral;Camila;Negociacao;
+Marcelo Dias;15000;Matriz Jardins;Rinomodelação;Instagram;Direct;Mariana;Perdido;Achou preco alto
+Carla Silveira;2800;Filial Alphaville;Clareamento a Laser;Google Ads;Search Dental;Fernanda;Perdido;Sem interesse no momento
+Thiago Martins;22000;Matriz Jardins;Protocolo Completo Anti-Age;Indicacao;Cliente Vip;Mariana;Ganhos;
+Larissa Pires;7800;Filial Barra;Harmonização Glutea;Instagram;Parceria Influencer;Camila;Em Atendimento;
+Andreia Fonseca;5100;Filial Alphaville;Toxina Botulinica;Google Ads;Google Maps;Fernanda;Ganhos;`;
+
+const SAMPLE_CSV_B2B = `Nome;Valor;Unidade;Procedimento;Origem;Suborigem;Consultora;Status;Motivo_Perda
+TechCorp Solutions;45000;Sede SP;Implementação ERP Cloud;Inbound;Webinar Q1;Roberto;Ganhos;
+Varejo Global Ltda;28000;Filial RJ;Consultoria Comercial;Google Ads;Search B2B;Camila;Ganhos;
+Logistica Express;15000;Sede SP;Treinamento de Equipe;Indicacao;Parceiro VIP;Roberto;Em Atendimento;
+Farmaceutica Central;62000;Sede SP;Auditoria de Processos;Outbound;LinkedIn Sales Nav;Ana Silva;Ganhos;
+Industria Alpha;34000;Filial Curitiba;Gestao de CRM & Pipeline;Google Ads;Remarketing;Camila;Negociacao;
+Construtora Horizonte;50000;Sede SP;Transformação Digital;Indicacao;Diretoria;Roberto;Perdido;Optou por concorrente
+Supermercados Unidos;19000;Filial RJ;Otimizacao Fiscal;Inbound;Blog Post;Ana Silva;Perdido;Budget estourado
+AutoPecas Brasil;38000;Filial Curitiba;Integracao Kommo CRM;Eventos;Feira Setorial;Camila;Ganhos;`;
 
 export const CsvImportModal: React.FC<CsvImportModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [file, setFile] = useState<File | null>(null);
@@ -25,18 +49,12 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ isOpen, onClose,
 
   if (!isOpen) return null;
 
-  const downloadSampleCsv = () => {
-    const csvContent =
-      'Nome;Valor;Unidade;Procedimento;Origem;Consultora;Status\n' +
-      'Ana Paula Ribeiro;15000;Matriz Jardins;Harmonização Facial;Instagram;Mariana;Ganhos\n' +
-      'Carlos Eduardo Silva;8500;Filial Alphaville;Implante Dentário;Indicação;Fernanda;Ganhos\n' +
-      'Juliana Mendes;4200;Matriz Jardins;Clareamento a Laser;Google Ads;Mariana;Em Atendimento\n';
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const downloadFile = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'modelo_importacao_leads_lhcrm.csv');
+    link.setAttribute('download', filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -51,7 +69,6 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ isOpen, onClose,
     setResult(null);
     setFile(selectedFile);
 
-    // Read preview
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
@@ -66,6 +83,15 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ isOpen, onClose,
       }
     };
     reader.readAsText(selectedFile);
+  };
+
+  const handleDirectInjectSample = async (sampleType: 'estetica' | 'b2b') => {
+    const sampleContent = sampleType === 'estetica' ? SAMPLE_CSV_ESTETICA : SAMPLE_CSV_B2B;
+    const blob = new Blob([sampleContent], { type: 'text/csv;charset=utf-8' });
+    const mockFile = new File([blob], `mockup_${sampleType}_teste.csv`, { type: 'text/csv' });
+    
+    // Set for preview and auto-upload
+    handleFileChange(mockFile);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -115,17 +141,17 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ isOpen, onClose,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
       <div className="bg-[#0b101b] border border-slate-800/90 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/50">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <FileSpreadsheet className="w-4 h-4" />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100">Importação de Planilha em Lote (CSV)</h2>
-              <p className="text-xs text-slate-400">Importe múltiplos leads, atendimentos e vendas de uma só vez</p>
+              <h2 className="text-base font-bold text-slate-100">Importação em Lote via Planilha (CSV)</h2>
+              <p className="text-xs text-slate-400">Importe múltiplos leads, valores, unidades e consultoras</p>
             </div>
           </div>
           <button
@@ -138,18 +164,61 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ isOpen, onClose,
 
         {/* Content Body */}
         <div className="p-6 space-y-5">
-          {/* Top Actions: Template Download */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800">
-            <div>
-              <p className="text-xs font-bold text-slate-200">Precisa do modelo de planilha?</p>
-              <p className="text-[11px] text-slate-400">Baixe nosso arquivo CSV exemplo pronto para preenchimento.</p>
+          {/* Quick Mockup Selector & Download Templates */}
+          <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-bold text-slate-200">Mockups de Teste Prontos para Uso:</span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-medium">1 clique para carregar ou baixar</span>
             </div>
-            <button
-              onClick={downloadSampleCsv}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 flex items-center gap-1.5 transition-colors shrink-0"
-            >
-              <Download className="w-3.5 h-3.5" /> Baixar Modelo CSV
-            </button>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="p-3 rounded-lg bg-slate-950/80 border border-slate-800 flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold text-slate-200">💉 Clínica & Saúde (12 Leads)</p>
+                  <p className="text-[10px] text-slate-400">Estética, Botox, Cirurgias, etc.</p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => handleDirectInjectSample('estetica')}
+                    className="px-2.5 py-1 text-[11px] font-bold rounded-md bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30 transition-all"
+                  >
+                    Usar
+                  </button>
+                  <button
+                    onClick={() => downloadFile(SAMPLE_CSV_ESTETICA, 'mockup_clinica_estetica.csv')}
+                    className="p-1 rounded text-slate-400 hover:text-slate-200"
+                    title="Baixar CSV"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-slate-950/80 border border-slate-800 flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold text-slate-200">💼 Vendas B2B & Software (8 Leads)</p>
+                  <p className="text-[10px] text-slate-400">Consultoria, ERPs, Serviços B2B</p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => handleDirectInjectSample('b2b')}
+                    className="px-2.5 py-1 text-[11px] font-bold rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all"
+                  >
+                    Usar
+                  </button>
+                  <button
+                    onClick={() => downloadFile(SAMPLE_CSV_B2B, 'mockup_vendas_b2b.csv')}
+                    className="p-1 rounded text-slate-400 hover:text-slate-200"
+                    title="Baixar CSV"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           {errorMsg && (
@@ -171,9 +240,9 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ isOpen, onClose,
               </div>
               <div>
                 <p className="text-sm font-bold text-slate-200">
-                  Arraste seu arquivo CSV aqui ou <span className="text-cyan-400 underline">clique para selecionar</span>
+                  Arraste seu arquivo CSV ou <span className="text-cyan-400 underline">clique para selecionar</span>
                 </p>
-                <p className="text-xs text-slate-400 mt-1">Compatível com separadores por vírgula (,) ou ponto e vírgula (;)</p>
+                <p className="text-xs text-slate-400 mt-1">Colunas aceitas: Nome, Valor, Unidade, Procedimento, Origem, Consultora, Status</p>
               </div>
               <input
                 ref={fileInputRef}
@@ -207,7 +276,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ isOpen, onClose,
               {/* Data Preview Table */}
               {previewRows.length > 0 && !result && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-400 mb-2">Pré-visualização das Primeiras Linhas:</p>
+                  <p className="text-xs font-semibold text-slate-400 mb-2">Pré-visualização dos Dados a Importar:</p>
                   <div className="overflow-x-auto rounded-xl border border-slate-800 max-h-48">
                     <table className="w-full text-[11px] text-left text-slate-300">
                       <thead className="bg-slate-900 text-slate-400 font-bold border-b border-slate-800 sticky top-0">
@@ -239,7 +308,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ isOpen, onClose,
               {result && (
                 <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
                   <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
-                    <CheckCircle2 className="w-5 h-5" /> Importação Concluída!
+                    <CheckCircle2 className="w-5 h-5" /> Importação Concluída com Sucesso!
                   </div>
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">

@@ -28,6 +28,7 @@ interface CommandPaletteProps {
   onToggleTheme?: () => void;
   onOpenNewLead?: () => void;
   onOpenCsvImport?: () => void;
+  onOpenQuickIndicator?: () => void;
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -38,6 +39,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onToggleTheme,
   onOpenNewLead,
   onOpenCsvImport,
+  onOpenQuickIndicator,
 }) => {
   const [query, setQuery] = useState('');
 
@@ -60,7 +62,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   const commands = [
     { id: 'new_lead', category: 'Ações Rápidas', label: '+ Cadastrar Novo Lead / Venda Manual', icon: Plus, action: () => { onClose(); onOpenNewLead && onOpenNewLead(); } },
-    { id: 'import_csv', category: 'Ações Rápidas', label: 'Importar Planilha em Lote (CSV)', icon: FileSpreadsheet, action: () => { onClose(); onOpenCsvImport && onOpenCsvImport(); } },
+    { id: 'quick_indicator', category: 'Ações Rápidas', label: '🎯 Definir Metas, CAC & ROI Executivo', icon: Target, action: () => { onClose(); onOpenQuickIndicator && onOpenQuickIndicator(); } },
+    { id: 'import_csv', category: 'Ações Rápidas', label: '📊 Importar Planilha em Lote (CSV)', icon: FileSpreadsheet, action: () => { onClose(); onOpenCsvImport && onOpenCsvImport(); } },
     { id: 'overview', category: 'Navegação', label: 'Visão Geral Executiva', icon: LayoutDashboard, action: () => onSelectTab('overview') },
     { id: 'goals', category: 'Navegação', label: 'Gestão de Metas & CAC / ROI', icon: Target, action: () => onSelectTab('goals') },
     { id: 'performance', category: 'Navegação', label: 'Atendimento & Tempos de Resposta', icon: Clock, action: () => onSelectTab('performance') },

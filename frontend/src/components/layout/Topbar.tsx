@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Bell, Sun, Moon, ShieldCheck, Plus, FileSpreadsheet } from 'lucide-react';
+import { Search, Bell, Sun, Moon, ShieldCheck, Plus, FileSpreadsheet, Target } from 'lucide-react';
 import { SyncButton } from '../SyncButton';
 import { ExportActions } from '../ExportActions';
 
@@ -11,6 +11,7 @@ interface TopbarProps {
   onSyncComplete?: () => void;
   onOpenNewLead?: () => void;
   onOpenCsvImport?: () => void;
+  onOpenQuickIndicator?: () => void;
   activeTabLabel: string;
 }
 
@@ -22,24 +23,25 @@ export const Topbar: React.FC<TopbarProps> = ({
   onSyncComplete,
   onOpenNewLead,
   onOpenCsvImport,
+  onOpenQuickIndicator,
   activeTabLabel,
 }) => {
   return (
-    <header className="sticky top-0 z-40 bg-[#080c14]/90 backdrop-blur-md border-b border-slate-800/80 px-4 lg:px-8 py-3">
-      <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
+    <header className="sticky top-0 z-20 bg-[#080c14]/90 backdrop-blur-xl border-b border-slate-800/80 px-4 lg:px-8 py-3 w-full">
+      <div className="max-w-7xl mx-auto w-full flex flex-wrap items-center justify-between gap-3">
         {/* Active Breadcrumb & Section Name */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-extrabold text-slate-100 tracking-tight">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base font-extrabold text-slate-100 tracking-tight truncate">
                 {activeTabLabel}
               </h2>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3" /> Live Supabase DB
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-1 shrink-0">
+                <ShieldCheck className="w-3 h-3" /> Live Supabase
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
-              Métricas de Desempenho Executivo & Análise de Vendas
+            <p className="text-[11px] text-slate-400 font-medium hidden sm:block truncate">
+              Métricas Executivas de Desempenho & Vendas
             </p>
           </div>
         </div>
@@ -47,7 +49,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         {/* Center Global Search Trigger (Ctrl+K) */}
         <button
           onClick={onOpenCommandPalette}
-          className="hidden md:flex items-center gap-3 px-4 py-2 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700 transition-all text-xs w-64 justify-between"
+          className="hidden md:flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700 transition-all text-xs w-60 justify-between shrink-0"
         >
           <div className="flex items-center gap-2">
             <Search className="w-3.5 h-3.5 text-cyan-400" />
@@ -58,27 +60,38 @@ export const Topbar: React.FC<TopbarProps> = ({
           </kbd>
         </button>
 
-        {/* Right Action Icons & Controls */}
-        <div className="flex items-center gap-2.5">
-          {onOpenNewLead && (
+        {/* Right Action Buttons */}
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {onOpenQuickIndicator && (
             <button
-              onClick={onOpenNewLead}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-cyan-500/20 transition-all"
-              title="Cadastrar Lead ou Venda Manual"
+              onClick={onOpenQuickIndicator}
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold text-xs transition-all shadow-sm"
+              title="Lançamento Rápido de Metas e Indicadores"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Novo Lead</span>
+              <Target className="w-3.5 h-3.5 text-amber-400" />
+              <span>Metas & CAC</span>
             </button>
           )}
 
           {onOpenCsvImport && (
             <button
               onClick={onOpenCsvImport}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-semibold text-xs transition-all"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-semibold text-xs transition-all shadow-sm"
               title="Importar Planilha CSV em Lote"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
               <span>Importar CSV</span>
+            </button>
+          )}
+
+          {onOpenNewLead && (
+            <button
+              onClick={onOpenNewLead}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-cyan-500/20 transition-all"
+              title="Cadastrar Lead ou Venda Manual"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Novo Lead</span>
             </button>
           )}
 

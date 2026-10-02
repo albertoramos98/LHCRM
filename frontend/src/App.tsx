@@ -5,6 +5,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { FiltersBar, FilterState } from './components/FiltersBar';
 import { NewLeadModal } from './components/NewLeadModal';
 import { CsvImportModal } from './components/CsvImportModal';
+import { QuickIndicatorModal } from './components/QuickIndicatorModal';
 
 import { OverviewModule } from './modules/OverviewModule';
 import { ServiceModule } from './modules/ServiceModule';
@@ -30,6 +31,7 @@ export function App() {
   // Modals
   const [isNewLeadOpen, setIsNewLeadOpen] = useState(false);
   const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
+  const [isQuickIndicatorOpen, setIsQuickIndicatorOpen] = useState(false);
 
   const [user, setUser] = useState<{ id: number; name: string; email: string; role: string } | null>(() => {
     const storedUser = localStorage.getItem('lhcrm_user');
@@ -211,6 +213,7 @@ export function App() {
           onToggleTheme={toggleTheme}
           onOpenNewLead={() => setIsNewLeadOpen(true)}
           onOpenCsvImport={() => setIsCsvImportOpen(true)}
+          onOpenQuickIndicator={() => setIsQuickIndicatorOpen(true)}
           onSyncComplete={() => {
             fetchData();
             checkIntegrationStatus();
@@ -264,6 +267,14 @@ export function App() {
         }}
       />
 
+      <QuickIndicatorModal
+        isOpen={isQuickIndicatorOpen}
+        onClose={() => setIsQuickIndicatorOpen(false)}
+        onSuccess={() => {
+          fetchData();
+        }}
+      />
+
       {/* Global Command Palette (Ctrl+K) */}
       <CommandPalette
         isOpen={isCommandPaletteOpen}
@@ -273,6 +284,7 @@ export function App() {
         onToggleTheme={toggleTheme}
         onOpenNewLead={() => setIsNewLeadOpen(true)}
         onOpenCsvImport={() => setIsCsvImportOpen(true)}
+        onOpenQuickIndicator={() => setIsQuickIndicatorOpen(true)}
       />
     </div>
   );
